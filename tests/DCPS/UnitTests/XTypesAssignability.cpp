@@ -3857,6 +3857,23 @@ TEST(UnionTypeTest, NotAssignable)
   EXPECT_FALSE(test.assignable(TypeObject(MinimalTypeObject(a10)), TypeObject(MinimalTypeObject(b10))));
 }
 
+TEST(TestMsgTest, ExpectAssignable)
+{
+  TypeAssignability test(make_rch<TypeLookupService>());
+  MinimalStructType a, b;
+  //  a.struct_flags = IS_APPENDABLE;
+  b.struct_flags = a.struct_flags;
+
+  // Primitive members
+  MinimalStructMember ma1(CommonStructMember(1, StructMemberFlag(), TypeIdentifier(TK_INT32)),
+                          MinimalMemberDetail("m1"));
+  MinimalStructMember mb1(CommonStructMember(1, StructMemberFlag(), TypeIdentifier(TK_INT32)),
+                          MinimalMemberDetail("m1"));
+  a.member_seq.append(ma1);
+  b.member_seq.append(mb1);
+  EXPECT_TRUE(test.assignable(TypeObject(MinimalTypeObject(a)), TypeObject(MinimalTypeObject(b))));
+}
+
 int main(int argc, char* argv[])
 {
   ::testing::InitGoogleTest(&argc, argv);
