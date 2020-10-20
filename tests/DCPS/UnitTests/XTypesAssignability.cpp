@@ -3478,6 +3478,26 @@ void expect_false_final()
   EXPECT_FALSE(test.assignable(TypeObject(MinimalTypeObject(a)), TypeObject(MinimalTypeObject(b))));
 }
 
+void expect_false_keys_must_persist()
+{
+  TypeAssignability test(make_rch<TypeLookupService>());
+  MinimalStructType a, b;
+
+  a.struct_flags = IS_MUTABLE;
+  b.struct_flags = a.struct_flags;
+  MinimalStructMember ma1(CommonStructMember(1, IS_KEY, TypeIdentifier(TK_UINT8)),
+                          MinimalMemberDetail("m1"));
+  MinimalStructMember ma2(CommonStructMember(2, StructMemberFlag(), TypeIdentifier(TK_FLOAT32)),
+                          MinimalMemberDetail("m2"));
+  MinimalStructMember mb1(CommonStructMember(1, StructMemberFlag(), TypeIdentifier(TK_UINT8)),
+                          MinimalMemberDetail("m1"));
+  MinimalStructMember mb2(CommonStructMember(2, IS_KEY, TypeIdentifier(TK_FLOAT32)),
+                          MinimalMemberDetail("m2"));
+  a.member_seq.append(ma1).append(ma2);
+  b.member_seq.append(mb1).append(mb2);
+  EXPECT_TRUE(test.assignable(TypeObject(MinimalTypeObject(a)), TypeObject(MinimalTypeObject(b))));
+}
+
 TEST(StructTypeTest, NotAssignable)
 {
   expect_false_different_extensibilities();
@@ -3494,6 +3514,7 @@ TEST(StructTypeTest, NotAssignable)
   expect_false_key_holder();
   expect_false_appendable();
   expect_false_final();
+  expect_false_keys_must_persist();
 }
 
 TEST(UnionTypeTest, Assignable)
