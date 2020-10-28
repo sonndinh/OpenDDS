@@ -1,0 +1,38 @@
+{
+  "name": "ELAC Test Analysis",
+  "desc": "This scenario is intended for the ELAC Test Analysis project",
+  "nodes": [
+    {
+      "workers": [
+        {
+          "config": "elac_signal_source.json",
+          "count": 1
+        }
+      ],
+      "count": 160,
+      "exclusive": false
+    },
+    {
+      "workers": [
+        {
+          "config": "elac_signal_processing.json",
+          "count": 7
+        }
+      ],
+      "count": 20,
+      "exclusive": true
+    },
+    {
+      "workers": [
+        {
+          "config": "elac_hmi.json",
+          "count": 1
+        }
+      ],
+      "count": 20,
+      "exclusive": false
+    }
+  ],
+  "any_node": [],
+  "timeout": 200
+}

@@ -1,0 +1,75 @@
+{
+  "create_time": { "sec": -2, "nsec": 0 },
+  "enable_time": { "sec": -2, "nsec": 0 },
+  "start_time": { "sec": -2, "nsec": 0},
+  "stop_time": { "sec": -180, "nsec":0 },
+  "destruction_time": { "sec": -2, "nsec": 0 },
+
+  "properties": [],
+
+  "process": {
+    "config_sections": [
+      { "name": "common",
+        "properties": [
+          { "name": "DCPSSecurity",
+            "value": 0
+          },
+          { "name": "DCPSDebugLevel",
+            "value": 0
+          }
+        ]
+      },
+      { "name": "transport/rtps_transport",
+        "properties": [
+          { "name": "transport_type",
+            "value": "rtps_udp"
+          }
+        ]
+      }
+    ],
+    "discoveries": [
+    ],
+    "instances": [
+    ],
+    "participants": [
+    ]
+  },
+
+  "actions": [
+    {
+      "name": "Write source signal",
+      "type": "write",
+      "writers": [ "datawriter_srcsig" ],
+      "params": [
+        {
+          "name": "data_buffer_bytes",
+          "value": { "_d": "PVK_ULL", "ull_prop": 4194304 }
+        },
+        {
+          "name": "write_frequency",
+          "value": { "_d": "PVK_DOUBLE", "double_prop": 10.0 }
+        }
+      ]
+    },
+    {
+      "name": "Write status",
+      "type": "write",
+      "writers": [ "datawriter_status" ],
+      "params": [
+        {
+          "name": "data_buffer_bytes",
+          "value": { "_d": "PVK_ULL", "ull_prop": 40 }
+        },
+        {
+          "name": "write_frequency",
+          "value": { "_d": "PVK_DOUBLE", "double_prop": 1.0 }
+        }
+      ]
+    }
+  ],
+
+  "action_reports": [],
+
+  "wait_for_discovery": true,
+  "wait_for_discovery_seconds": 10
+}
