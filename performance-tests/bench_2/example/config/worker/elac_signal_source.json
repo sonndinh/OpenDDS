@@ -58,9 +58,9 @@
             "type_name": "Bench::Data",
             "qos": { "history": { "kind": "KEEP_LAST_HISTORY_QOS" },
                      "liveliness": { "kind": "AUTOMATIC_LIVELINESS_QOS",
-                                     "lease_duration": { 30, 0 } },
+                                     "lease_duration": { "sec": 30, "nanosec": 0 } },
                      "reliability": { "kind": "RELIABLE_RELIABILITY_QOS",
-                                      "max_blocking_time": { 1, 0 } }
+                                      "max_blocking_time": { "sec": 1, "nanosec": 0 } }
                    }
             "qos_mask": { "history": { "has_kind": true },
                           "liveliness": { "has_kind": true,
@@ -74,10 +74,10 @@
             "type_name": "Bench::Data",
             "qos": { "history": { "kind": "KEEP_LAST_HISTORY_QOS" },
                      "liveliness": { "kind": "AUTOMATIC_LIVELINESS_QOS",
-                                    "lease_duration": { 30, 0 } },
+                                     "lease_duration": { "sec": 30, "nanosec": 0 } },
                      "reliability": { "kind": "RELIABLE_RELIABILITY_QOS",
-                                      "max_blocking_time": { 10, 0 } },
-                     "deadline": { "period": { "DURATION_INFINITE_SEC", 0 } },
+                                      "max_blocking_time": { "sec": 10, "nanosec": 0 } },
+                     "deadline": { "period": { "sec": "DURATION_INFINITE_SEC", "nanosec": 0 } },
                      "durability": { "kind": "TRANSIENT_LOCAL_DURABILITY_QOS" }
                    },
             "qos_mask": { "history": { "has_kind": true },
@@ -94,7 +94,7 @@
             "type_name": "Bench:Data",
             "qos": { "history": { "kind": "KEEP_LAST_HISTORY_QOS" },
                      "reliability": { "kind": "RELIABLE_RELIABILITY_QOS",
-                                      "max_blocking_time": { 1, 0 } }
+                                      "max_blocking_time": { "sec": 1, "nanosec": 0 } }
                    },
             "qos_mask": { "history": { "has_kind": true },
                           "reliability": { "has_kind": true,
