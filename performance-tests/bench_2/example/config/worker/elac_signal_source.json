@@ -9,7 +9,8 @@
 
   "process": {
     "config_sections": [
-      { "name": "common",
+      {
+        "name": "common",
         "properties": [
           { "name": "DCPSSecurity",
             "value": 0
@@ -19,7 +20,8 @@
           }
         ]
       },
-      { "name": "transport/rtps_transport",
+      {
+        "name": "transport/rtps_transport",
         "properties": [
           { "name": "transport_type",
             "value": "rtps_udp"
@@ -28,10 +30,117 @@
       }
     ],
     "discoveries": [
+      {
+        "name": "elac_test_rtps",
+        "type": "rtps",
+        "domain": 7
+      }
     ],
     "instances": [
+      {
+        "name": "rtps_instance_01",
+        "type": "rtps_udp",
+        "domain": 7
+      }
     ],
     "participants": [
+      {
+        "name": "participant_01",
+        "domain": 7,
+        "transport_config_name": "rtps_instance_01",
+
+        "qos": { "entity_factory": { "autoenable_created_entities": false } },
+        "qos_mask": { "entity_factory": { "has_autoenable_created_entities": true } },
+
+        "topics": [
+          {
+            "name": "SourceSignalTopic",
+            "type_name": "Bench::Data",
+            "qos": { "history": { "kind": "KEEP_LAST_HISTORY_QOS" },
+                     "liveliness": { "kind": "AUTOMATIC_LIVELINESS_QOS",
+                                     "lease_duration": { 30, 0 } },
+                     "reliability": { "kind": "RELIABLE_RELIABILITY_QOS",
+                                      "max_blocking_time": { 1, 0 } }
+                   }
+            "qos_mask": { "history": { "has_kind": true },
+                          "liveliness": { "has_kind": true,
+                                          "has_lease_duration": true },
+                          "reliability": { "has_kind": true,
+                                           "has_max_blocking_time": true }
+                        }
+          },
+          {
+            "name": "StatusTopic",
+            "type_name": "Bench::Data",
+            "qos": { "history": { "kind": "KEEP_LAST_HISTORY_QOS" },
+                     "liveliness": { "kind": "AUTOMATIC_LIVELINESS_QOS",
+                                    "lease_duration": { 30, 0 } },
+                     "reliability": { "kind": "RELIABLE_RELIABILITY_QOS",
+                                      "max_blocking_time": { 10, 0 } },
+                     "deadline": { "period": { "DURATION_INFINITE_SEC", 0 } },
+                     "durability": { "kind": "TRANSIENT_LOCAL_DURABILITY_QOS" }
+                   },
+            "qos_mask": { "history": { "has_kind": true },
+                          "liveliness": { "has_kind": true,
+                                          "has_lease_duration": true },
+                          "reliability": { "has_kind": true,
+                                           "has_max_blocking_time": true },
+                          "deadline": { "has_period": true },
+                          "durability": { "has_kind": true }
+                        }
+          },
+          {
+            "name": "CommandTopic",
+            "type_name": "Bench:Data",
+            "qos": { "history": { "kind": "KEEP_LAST_HISTORY_QOS" },
+                     "reliability": { "kind": "RELIABLE_RELIABILITY_QOS",
+                                      "max_blocking_time": { 1, 0 } }
+                   },
+            "qos_mask": { "history": { "has_kind": true },
+                          "reliability": { "has_kind": true,
+                                           "has_max_blocking_time": true }
+                        }
+          }
+        ],
+        "publishers": [
+          {
+            "name": "publisher_01",
+            "datawriters": [
+              {
+                "name": "datawriter_source_signal",
+                "topic_name": "SourceSignalTopic",
+                "listener_type_name": "bench_dwl",
+                "listener_status_mask": 4294967295,
+                "qos": { "history": { "depth": 10 } },
+                "qos_mask": { "history": { "has_depth": true } }
+              },
+              {
+                "name": "datawriter_status",
+                "topic_name": "StatusTopic",
+                "listener_type_name": "bench_dwl",
+                "listener_status_mask": 4294967295,
+                "qos": { "history": { "depth": 1 } },
+                "qos_mask": { "history": { "has_depth": true } }
+              }
+            ]
+          }
+        ],
+        "subscribers": [
+          {
+            "name": "subscriber_01",
+            "datareaders": [
+              {
+                "name": "datareader_command",
+                "topic_name": "CommandTopic",
+                "listener_type_name": "bench_drl",
+                "listener_status_mask": 4294967295,
+                "qos": { "history": { "depth": 10 } },
+                "qos_mask": { "history": { "has_depth": true} }
+              }
+            ]
+          }
+        ]
+      }
     ]
   },
 
@@ -39,7 +148,7 @@
     {
       "name": "Write source signal",
       "type": "write",
-      "writers": [ "datawriter_srcsig" ],
+      "writers": [ "datawriter_source_signal" ],
       "params": [
         {
           "name": "data_buffer_bytes",
