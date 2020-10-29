@@ -61,7 +61,7 @@
                                      "lease_duration": { "sec": 30, "nanosec": 0 } },
                      "reliability": { "kind": "RELIABLE_RELIABILITY_QOS",
                                       "max_blocking_time": { "sec": 1, "nanosec": 0 } }
-                   }
+                   },
             "qos_mask": { "history": { "has_kind": true },
                           "liveliness": { "has_kind": true,
                                           "has_lease_duration": true },
