@@ -19,15 +19,14 @@ bool read_total_cpu_usage(size_t& time)
 
   std::ifstream statfile;
   statfile.open(filename, std::ios::in);
+  if (!statfile.is_open()) {
+    return false;
+  }
 
   size_t user_time = 0;
   size_t nice_time = 0;
   size_t system_time = 0;
   size_t idle_time = 0;
-
-  if (!statfile.is_open()) {
-    return false;
-  }
 
   std::stringstream ss;
   std::string cpuname;
@@ -58,6 +57,9 @@ bool read_process_cpu_usage(int processId, size_t& utime, size_t& stime)
 
   std::ifstream statfile;
   statfile.open(filename, std::ios::in);
+  if (!statfile.is_open()) {
+    return false;
+  }
 
   int pid;
   std::string comm;
@@ -72,10 +74,6 @@ bool read_process_cpu_usage(int processId, size_t& utime, size_t& stime)
   size_t cminflt;
   size_t majflt;
   size_t cmajflt;
-
-  if (!statfile.is_open()) {
-    return false;
-  }
 
   std::stringstream ss;
   std::getline(statfile, line);

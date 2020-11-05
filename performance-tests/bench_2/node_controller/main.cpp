@@ -290,14 +290,12 @@ public:
     std::thread stat_collector([&](){
 
       while (running) {
-
         std::this_thread::sleep_for(std::chrono::seconds(1));
 
         double cpu_sum = 0.0;
         double mem_sum = 0.0;
 
-        for (auto it = worker_process_stat_collectors_.begin(); it != worker_process_stat_collectors_.end(); it++)
-        {
+        for (auto it = worker_process_stat_collectors_.begin(); it != worker_process_stat_collectors_.end(); it++) {
           cpu_sum += it->second->get_cpu_usage();
           mem_sum += it->second->get_mem_usage();
         }
@@ -712,8 +710,7 @@ void wait_for_full_scenario(
     }
 
     if (allocated_scenario.scenario_id != TAO::String_Manager() &&
-        initial_attempt + std::chrono::seconds(30) < std::chrono::system_clock::now())
-    {
+        initial_attempt + std::chrono::seconds(30) < std::chrono::system_clock::now()) {
       if (write_status(name, this_node_id, AVAILABLE, *status_writer_impl)) {
         allocated_scenario.scenario_id = TAO::String_Manager();
         allocated_scenario.launch_time = ZERO;
