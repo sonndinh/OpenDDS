@@ -5611,6 +5611,9 @@ jobs:
     runs-on: windows-2019
 
     steps:
+    - name: get network interface information
+      shell: cmd
+      run: ipconfig /all
     - name: checkout OpenDDS
       uses: actions/checkout@v3
       with:
@@ -5694,6 +5697,9 @@ jobs:
     needs: ACE_TAO_w19_p1_stat_js0
 
     steps:
+    - name: get network interface information
+      shell: cmd
+      run: ipconfig /all
     - name: install openssl & xerces-c
       uses: lukka/run-vcpkg@v7
       with:
