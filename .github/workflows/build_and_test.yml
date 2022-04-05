@@ -8936,6 +8936,9 @@ jobs:
     runs-on: windows-2022
 
     steps:
+    - name: get network interface information
+      shell: cmd
+      run: ipconfig /all
     - name: checkout OpenDDS
       uses: actions/checkout@v3
       with:
