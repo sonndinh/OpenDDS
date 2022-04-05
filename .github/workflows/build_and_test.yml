@@ -9024,7 +9024,7 @@ jobs:
     steps:
     - name: get network interface information
       shell: cmd
-      run: ipconfig
+      run: ipconfig /all
     - name: install openssl & xerces-c
       uses: lukka/run-vcpkg@v7
       with:
