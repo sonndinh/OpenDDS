@@ -9022,6 +9022,9 @@ jobs:
     needs: ACE_TAO_w22_x86_i0
 
     steps:
+    - name: get network interface information
+      shell: cmd
+      run: ipconfig
     - name: install openssl & xerces-c
       uses: lukka/run-vcpkg@v7
       with:
