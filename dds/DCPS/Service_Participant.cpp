@@ -38,6 +38,7 @@
 #include <ace/Malloc_Allocator.h>
 #include <ace/OS_NS_unistd.h>
 #include <ace/Version.h>
+#include <ace/Configuration.h>
 
 #include <cstring>
 #ifdef OPENDDS_SAFETY_PROFILE
@@ -304,6 +305,10 @@ Service_Participant::job_queue() const
 
 DDS::ReturnCode_t Service_Participant::shutdown()
 {
+  if (DCPS_debug_level >= 1) {
+    ACE_DEBUG((LM_DEBUG, "(%P|%t) Service_Participant::shutdown\n"));
+  }
+
   if (shut_down_) {
     return DDS::RETCODE_ALREADY_DELETED;
   }
@@ -1573,16 +1578,17 @@ Service_Participant::register_discovery_type(const char* section_name,
 int
 Service_Participant::load_configuration()
 {
+  ACE_Configuration_Heap cf;
   int status = 0;
 
-  if ((status = this->cf_.open()) != 0)
+  if ((status = cf.open()) != 0)
     ACE_ERROR_RETURN((LM_ERROR,
                       ACE_TEXT("(%P|%t) ERROR: Service_Participant::load_configuration ")
                       ACE_TEXT("open() returned %d\n"),
                       status),
                      -1);
 
-  ACE_Ini_ImpExp import(this->cf_);
+  ACE_Ini_ImpExp import(cf);
   status = import.import_config(config_fname.c_str());
 
   if (status != 0) {
@@ -1592,8 +1598,9 @@ Service_Participant::load_configuration()
                       status),
                      -1);
   } else {
-    status = this->load_configuration(this->cf_, config_fname.c_str());
+    status = this->load_configuration(cf, config_fname.c_str());
   }
+
   return status;
 }
 
@@ -1607,9 +1614,7 @@ Service_Participant::load_configuration(
   // for config templates before loading any config information.
   ACE_TString section_name;
 
-  int status = 0;
-
-  status = this->load_common_configuration(config, filename);
+  int status = this->load_common_configuration(config, filename);
 
   if (status != 0) {
     ACE_ERROR_RETURN((LM_ERROR,
@@ -2607,7 +2612,7 @@ Service_Participant::load_discovery_templates(ACE_Configuration_Heap& cf)
 }
 
 int Service_Participant::parse_domain_range(const OPENDDS_STRING& range, int& start, int& end) {
-  std::size_t dash_pos = range.find("-", 0);
+  const std::size_t dash_pos = range.find("-", 0);
 
   if (dash_pos == std::string::npos || dash_pos == range.length() - 1) {
     start = end = -1;
@@ -2933,12 +2938,6 @@ DDS::Topic_ptr Service_Participant::create_typeless_topic(
 void Service_Participant::default_configuration_file(const ACE_TCHAR* path)
 {
   default_configuration_file_ = path;
-}
-
-ACE_Configuration_Heap&
-Service_Participant::get_configuration()
-{
-  return cf_;
 }
 
 ThreadStatusManager& Service_Participant::get_thread_status_manager()
