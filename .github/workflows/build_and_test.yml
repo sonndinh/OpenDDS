@@ -9248,6 +9248,9 @@ jobs:
     needs: build_w22_x86_i0_sec
 
     steps:
+    - name: get network interface information (at the beginning)
+      shell: cmd
+      run: ipconfig /all
     - name: install openssl & xerces-c
       uses: lukka/run-vcpkg@v7
       with:
@@ -9351,6 +9354,9 @@ jobs:
         <command name="process_logs" options="prettify"/>
         </autobuild>
         EOF
+    - name: get network interface information (pre-test)
+      shell: cmd
+      run: ipconfig /all
     - name: run OpenDDS tests
       shell: cmd
       run: |
@@ -9358,6 +9364,9 @@ jobs:
         call setenv.cmd
         cd ${{ github.job }}_autobuild_workspace
         perl "%GITHUB_WORKSPACE%\autobuild\autobuild.pl" "C:\OpenDDS\${{ github.job }}_autobuild_workspace\config.xml"
+    - name: get network interface information (post-test)
+      shell: cmd
+      run: ipconfig /all
     - name: upload autobuild output
       uses: actions/upload-artifact@v2
       with:

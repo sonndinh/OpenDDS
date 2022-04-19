@@ -78,6 +78,20 @@ String get_fully_qualified_hostname(ACE_INET_Addr* addr)
       ACE_DEBUG((LM_DEBUG, "(%P|%t) XXXXXXXXXXXXXXX BEGIN get_fully_qualified_hostname....\n"));
     }
     ~LogGuard() {
+      size_t addr_count;
+      ACE_INET_Addr *addr_array = 0;
+      const int result = ACE::get_ip_interfaces(addr_count, addr_array);
+      if (result != 0 || addr_count < 1) {
+        ACE_ERROR((LM_ERROR,
+                   ACE_TEXT("(%P|%t) XXXXXXXXXXXXXXX ERROR: Unable to probe network when exiting. %p\n"),
+                   ACE_TEXT("ACE::get_ip_interfaces")));
+      } else {
+        for (size_t i = 0; i < addr_count; i++) {
+          ACE_DEBUG((LM_DEBUG, "(%P|%t) XXXXXXXXXXXXXXXX NetworkResource: found IP interface %C\n", LogAddr::ip(addr_array[i]).c_str()));
+        }
+      }
+      delete [] addr_array;
+
       ACE_DEBUG((LM_DEBUG, "(%P|%t) XXXXXXXXXXXXXXX END get_fully_qualified_hostname - hostname: %C, IP address: %C\n",
                  fullname.c_str(), LogAddr(selected_address).c_str()));
     }
