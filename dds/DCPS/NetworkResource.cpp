@@ -857,7 +857,7 @@ ACE_INET_Addr choose_single_coherent_address(const String& address, bool prefer_
     }
     ACE_DEBUG((LM_DEBUG, "\n"));
   }
-  ACE_DEBUG(("(%P|%t) choose_single_coherent_address(hostname) - Cache contents END\n"));
+  ACE_DEBUG((LM_DEBUG, "(%P|%t) choose_single_coherent_address(hostname) - Cache contents END\n"));
   // Finish dumping cache contents
 
   AddrCacheMap::iterator it = addr_cache_map_.find(host_name);
