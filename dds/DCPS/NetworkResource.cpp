@@ -847,13 +847,36 @@ ACE_INET_Addr choose_single_coherent_address(const String& address, bool prefer_
       ++it;
     }
   }
+  // Dump cache contents
+  ACE_DEBUG((LM_DEBUG, "(%P|%t) choose_single_coherent_address(hostname) - Cache contents BEGIN\n"));
+  for (AddrCacheMap::iterator it = addr_cache_map_.begin(); it != addr_cache_map_.end(); ++it) {
+    ACE_DEBUG((LM_DEBUG, "(%P|%t) Hostname %C:", it->first));
+    for (OPENDDS_SET(ACE_INET_Addr)::const_iterator iter = it->second.second.begin();
+         iter != it->second.second.end(); ++iter) {
+      ACE_DEBUG((LM_DEBUG, "%C ", LogAddr(*iter).c_str()));
+    }
+    ACE_DEBUG((LM_DEBUG, "\n"));
+  }
+  ACE_DEBUG(("(%P|%t) choose_single_coherent_address(hostname) - Cache contents END\n"));
+  // Finish dumping cache contents
+
   AddrCacheMap::iterator it = addr_cache_map_.find(host_name);
   if (it != addr_cache_map_.end()) {
+    ACE_DEBUG((LM_DEBUG, "(%P|%t) choose_single_coherent_address(hostname) - adding cache addresses for hostname %C\n", host_name));
+    int i = 0;
+    for (OPENDDS_SET(ACE_INET_Addr)::const_iterator iter = it->second.second.begin();
+         iter != it->second.second.end(); ++iter) {
+      ACE_DEBUG((LM_DEBUG, "(%P|%t) choose_single_coherent_address(hostname) - address %d: %C\n",
+                 i, LogAddr(*iter).c_str()));
+    }
     addresses.insert(addresses.end(), it->second.second.begin(), it->second.second.end());
     it->second.first = now;
+  } else {
+    ACE_DEBUG((LM_DEBUG, "(%P|%t) choose_single_coherent_address(hostname) - No entry for hostname %C in cache\n", host_name));
   }
 #endif /* ACE_WIN32 */
 
+  ACE_DEBUG((LM_DEBUG, "(%P|%t) choose_single_coherent_address(hostname) - Considering addresses returned from getaddrinfo\n"));
   for (addrinfo* curr = res; curr; curr = curr->ai_next) {
     if (curr->ai_family != AF_INET && curr->ai_family != AF_INET6) {
       continue;
@@ -874,9 +897,11 @@ ACE_INET_Addr choose_single_coherent_address(const String& address, bool prefer_
     ACE_INET_Addr temp;
     temp.set_addr(&addr, sizeof addr);
     temp.set_port_number(port_number, 1 /*encode*/);
+    ACE_DEBUG((LM_DEBUG, "(%P|%t) choose_single_coherent_address(hostname) - Add address %C to list to be considered\n", LogAddr(temp).c_str()));
     addresses.push_back(temp);
 #ifdef ACE_WIN32
     if (it != addr_cache_map_.end()) {
+      ACE_DEBUG((LM_DEBUG, "(%P|%t) choose_single_coherent_address(hostname) - Add address %C to the cache for hostname %C", LogAddr(temp).c_str(), host_name));
       it->second.second.insert(temp);
     }
 #endif /* ACE_WIN32 */
