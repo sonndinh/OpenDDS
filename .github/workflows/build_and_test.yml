@@ -8942,9 +8942,12 @@ jobs:
     runs-on: windows-2022
 
     steps:
-    - name: get network interface information
+    - name: get network interface information (pre-build)
       shell: cmd
       run: ipconfig /all
+    - name: get DNS information (pre-build)
+      shell: cmd
+      run: ipconfig /displaydns
     - name: checkout OpenDDS
       uses: actions/checkout@v3
       with:
@@ -9008,6 +9011,12 @@ jobs:
         msbuild -p:Configuration=Debug,Platform=Win32 -m ace.sln
         cd ..\TAO
         msbuild -p:Configuration=Debug,Platform=Win32 -m tao.sln
+    - name: get network interface information (post-build)
+      shell: cmd
+      run: ipconfig /all
+    - name: get DNS information (post-build)
+      shell: cmd
+      run: ipconfig /displaydns
     - name: create ACE_TAO tar.xz artifact
       if: steps.cache-artifact.outputs.cache-hit != 'true'
       shell: bash
@@ -9031,9 +9040,12 @@ jobs:
     needs: ACE_TAO_w22_x86_i0
 
     steps:
-    - name: get network interface information
+    - name: get network interface information (pre-build)
       shell: cmd
       run: ipconfig /all
+    - name: get DNS information (pre-build)
+      shell: cmd
+      run: ipconfig /displaydns
     - name: install openssl & xerces-c
       uses: lukka/run-vcpkg@v7
       with:
@@ -9098,6 +9110,12 @@ jobs:
         cd /d C:\OpenDDS
         call setenv.cmd
         msbuild -p:Configuration=Debug,Platform=Win32 -m DDS.sln
+    - name: get network interface information (post-build)
+      shell: cmd
+      run: ipconfig /all
+    - name: get DNS information (post-build)
+      shell: cmd
+      run: ipconfig /displaydns
     - name: create OpenDDS tar.xz artifact
       shell: bash
       run: |
@@ -9120,6 +9138,12 @@ jobs:
     needs: build_w22_x86_i0_sec
 
     steps:
+    - name: get network interface information (begin)
+      shell: cmd
+      run: ipconfig /all
+    - name: get DNS information (begin)
+      shell: cmd
+      run: ipconfig /displaydns
     - name: install openssl & xerces-c
       uses: lukka/run-vcpkg@v7
       with:
@@ -9222,6 +9246,12 @@ jobs:
         <command name="process_logs" options="prettify"/>
         </autobuild>
         EOF
+    - name: get network interface information (pre-test)
+      shell: cmd
+      run: ipconfig /all
+    - name: get DNS information (pre-test)
+      shell: cmd
+      run: ipconfig /displaydns
     - name: run OpenDDS CMake tests
       shell: cmd
       run: |
@@ -9229,6 +9259,12 @@ jobs:
         call setenv.cmd
         cd ${{ github.job }}_autobuild_workspace
         perl "%GITHUB_WORKSPACE%\autobuild\autobuild.pl" "C:\OpenDDS\${{ github.job }}_autobuild_workspace\config.xml"
+    - name: get network interface information (post-test)
+      shell: cmd
+      run: ipconfig /all
+    - name: get DNS information (post-test)
+      shell: cmd
+      run: ipconfig /displaydns
     - name: upload autobuild output
       uses: actions/upload-artifact@v2
       with:
@@ -9248,9 +9284,12 @@ jobs:
     needs: build_w22_x86_i0_sec
 
     steps:
-    - name: get network interface information (at the beginning)
+    - name: get network interface information (begin)
       shell: cmd
       run: ipconfig /all
+    - name: get DNS information (begin)
+      shell: cmd
+      run: ipconfig /displaydns
     - name: install openssl & xerces-c
       uses: lukka/run-vcpkg@v7
       with:
@@ -9357,6 +9396,9 @@ jobs:
     - name: get network interface information (pre-test)
       shell: cmd
       run: ipconfig /all
+    - name: get DNS information (pre-test)
+      shell: cmd
+      run: ipconfig /displaydns
     - name: run OpenDDS tests
       shell: cmd
       run: |
@@ -9367,6 +9409,9 @@ jobs:
     - name: get network interface information (post-test)
       shell: cmd
       run: ipconfig /all
+    - name: get DNS information (post-test)
+      shell: cmd
+      run: ipconfig /displaydns
     - name: upload autobuild output
       uses: actions/upload-artifact@v2
       with:
