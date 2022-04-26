@@ -267,7 +267,10 @@ jobs:
         cat /proc/sys/kernel/core_pattern
     - name: check ulimit
       shell: bash
-      run: ulimit
+      run: |
+        ulimit
+        echo Setting ulimit to unlimited
+        ulimit -c unlimited
     - name: checkout MPC
       uses: actions/checkout@v3
       with:
