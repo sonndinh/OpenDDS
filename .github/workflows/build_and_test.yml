@@ -70,6 +70,10 @@ jobs:
     runs-on: ubuntu-18.04
 
     steps:
+    - name: check core file pattern
+      shell: bash
+      run: |
+        cat /proc/sys/kernel/core_pattern
     - name: checkout OpenDDS
       uses: actions/checkout@v3
       with:
@@ -141,6 +145,10 @@ jobs:
     needs: ACE_TAO_u18_i0_xer0_js0_j12
 
     steps:
+    - name: check core file pattern
+      shell: bash
+      run: |
+        cat /proc/sys/kernel/core_pattern
     - name: checkout MPC
       uses: actions/checkout@v3
       with:
@@ -2617,6 +2625,10 @@ jobs:
     runs-on: ubuntu-20.04
 
     steps:
+    - name: check core file pattern
+      shell: bash
+      run: |
+        cat /proc/sys/kernel/core_pattern
     - name: install gcc and g++
       run: |
         sudo apt-get install g++-10
@@ -2724,6 +2736,10 @@ jobs:
     needs: ACE_TAO_u20_gcc10_bsafe_js0_FM-2c
 
     steps:
+    - name: check core file pattern
+      shell: bash
+      run: |
+        cat /proc/sys/kernel/core_pattern
     - name: install gcc and g++
       run: |
         sudo apt-get install g++-10
