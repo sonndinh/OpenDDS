@@ -150,6 +150,9 @@ $test->process("subscriber", $sub_exe, $sub_opts);
 $test->start_process("subscriber");
 $test->start_process("publisher");
 
+$test->wait_kill("subscriber", 60);
+$test->wait_kill("publisher", 60);
+
 # ignore this issue that is already being tracked in redmine
 $test->ignore_error("(Redmine Issue# 1446)");
 exit $test->finish(120);
