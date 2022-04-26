@@ -45,6 +45,10 @@ void append(DDS::PropertySeq& props, const char* name, const char* value, bool p
   const unsigned int len = props.length();
   props.length(len + 1);
   props[len] = prop;
+
+  // Going to crash
+  int* tmp = 0;
+  *tmp = 100;
 }
 
 int ACE_TMAIN(int argc, ACE_TCHAR* argv[])
