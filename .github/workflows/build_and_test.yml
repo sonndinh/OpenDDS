@@ -78,7 +78,7 @@ jobs:
     - name: try to change core file pattern
       shell: bash
       run: |
-        sysctl -w kernel.core_pattern=core.%e.%p
+        sudo sysctl -w kernel.core_pattern=core.%e.%p
     - name: check core file pattern after updating
       shell: bash
       run: |
