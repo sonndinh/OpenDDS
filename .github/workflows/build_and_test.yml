@@ -83,6 +83,9 @@ jobs:
       shell: bash
       run: |
         cat /proc/sys/kernel/core_pattern
+    - name: check ulimit
+      shell: bash
+      run: ulimit
     - name: checkout OpenDDS
       uses: actions/checkout@v3
       with:
@@ -167,6 +170,9 @@ jobs:
       shell: bash
       run: |
         cat /proc/sys/kernel/core_pattern
+    - name: check ulimit
+      shell: bash
+      run: ulimit
     - name: checkout MPC
       uses: actions/checkout@v3
       with:
@@ -259,6 +265,9 @@ jobs:
       shell: bash
       run: |
         cat /proc/sys/kernel/core_pattern
+    - name: check ulimit
+      shell: bash
+      run: ulimit
     - name: checkout MPC
       uses: actions/checkout@v3
       with:
