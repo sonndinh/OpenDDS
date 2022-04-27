@@ -465,6 +465,8 @@ sub print_stacktrace {
     printf STDOUT "WARNING: Core file pattern $core_pattern_file does not exist\n";
     return;
   }
+  # Debug message
+  printf STDOUT "DEBUG: Core file pattern /proc/sys/kernel/core_pattern exists\n";
 
   my $pattern_fh;
   if (!open($pattern_fh, "<", "$core_pattern_file")) {
@@ -475,6 +477,8 @@ sub print_stacktrace {
   my $line = <$pattern_fh>;
   chomp($line);
   close($pattern_fh);
+  # Debug message
+  printf STDOUT "DEBUG: Core pattern $line\n";
 
   # Find the core file from the pattern
   my $last_slash_idx = rindex($line, "/");
@@ -523,6 +527,8 @@ sub print_stacktrace {
   } elsif ($uses_pid != 0) {
     $pattern = $pattern . "." . _getpid($process);
   }
+  # Debug message
+  printf STDOUT "DEBUG: Pattern so far $pattern\n";
 
   my $timestamp_idx = index($pattern, "%t");
   my $core_file_path;
@@ -609,14 +615,20 @@ sub wait_kill {
   my %my_opts;
 
   if (!defined $opts) {
+    #Debug message
+    printf STDOUT "DEBUG: No opts from user provided\n";
     $my_opts{dump_ref} = \$has_core;
   } elsif (!$opts->{self_crash}) {
+    # Debug message
+    printf STDOUT "DEBUG: Process does not self-crash\n";
     $my_opts{dump_ref} = \$has_core;
     if (defined $opts->{signal_ref}) {
       $my_opts{signal_ref} = $opts->{signal_ref};
     }
   } else {
     # We don't want to print out stack trace in case of self-crash.
+    # Debug message
+    printf STDOUT "DEBUG: Process self-crash. We are not printing stack trace\n";
     $print_stack_trace = 0;
     $my_opts{self_crash} = 1;
     $my_opts{dump_ref} = \$has_core;
@@ -631,7 +643,14 @@ sub wait_kill {
     ${$opts->{dump_ref}} = $has_core;
   }
 
+  # Debug message
+  printf STDOUT "DEBUG: print_stack_trace is $print_stack_trace\n";
+  if (defined $has_core) {
+    printf STDOUT "DEBUG: has_core is $has_core\n";
+  }
   if ($print_stack_trace && $has_core) {
+    # Debug message
+    printf STDOUT "DEBUG: There is core file. Going to print out stack trace\n";
     $self->print_stacktrace($process);
   }
   return $result;
