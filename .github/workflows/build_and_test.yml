@@ -94,7 +94,7 @@ jobs:
     - name: try listing OpenDDS directory
       shell: bash
       run: |
-        ls OpenDDS/tests/DCPS/Messenger | grep core
+        ls OpenDDS/tests/DCPS/Messenger
     - name: checkout ACE_TAO
       uses: actions/checkout@v3
       with:
