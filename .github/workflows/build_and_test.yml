@@ -95,6 +95,7 @@ jobs:
       shell: bash
       run: |
         ls OpenDDS/tests/DCPS/Messenger
+        grep --help
     - name: checkout ACE_TAO
       uses: actions/checkout@v3
       with:
