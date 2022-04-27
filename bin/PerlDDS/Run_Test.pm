@@ -562,10 +562,21 @@ sub print_stacktrace {
     printf STDOUT "WARNING: Core file $core_file_path does not exist\n";
     return;
   }
+  # Debug message.
+  printf STDOUT "DEBUG: Found core file $core_file_path\n";
 
   # Print stack trace.
   my $stack_trace;
+
+  # Debug message
+  my $has_gdb = system("gdb --version");
+  printf STDOUT "DEBUG: \"gdb --version\" returned $has_gdb\n";
+  my $has_lldb = system("lldb --version");
+  printf STDOUT "DEBUG: \"lldb --version\" returned $has_lldb\n";
+
   if (system("gdb --version") != -1) {
+    # Debug message
+    printf STDOUT "DEBUG: Printing stack trace with gdb...\n";
     $stack_trace = `gdb $exec_path -c $core_file_path -ex bt -ex quit`;
   } elsif (system("lldb --version") != -1) {
     printf STDOUT "WARNING: Failed printing stack trace with gdb. Trying lldb...\n";
@@ -578,6 +589,9 @@ sub print_stacktrace {
     printf STDOUT "\n======= Stack trace from core file $core_file_path =======\n";
     printf STDOUT $stack_trace;
     printf STDOUT "\n";
+  } else {
+    # Debug message
+    printf STDOUT "DEBUG: stack trace is undef\n";
   }
 }
 
