@@ -268,7 +268,7 @@ jobs:
     - name: check ulimit
       shell: bash
       run: |
-        ulimit
+        ulimit -c
         echo Setting ulimit to unlimited
         ulimit -c unlimited
     - name: checkout MPC
@@ -321,6 +321,8 @@ jobs:
     - name: run OpenDDS tests
       shell: bash
       run: |
+        ulimit -c unlimited
+        cat /proc/sys/kernel/core_pattern
         cd OpenDDS
         echo "export ACE_TEST_LOG_STUCK_STACKS=1" >> setenv.sh
         . setenv.sh
