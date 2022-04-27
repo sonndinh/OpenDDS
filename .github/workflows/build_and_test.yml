@@ -86,6 +86,12 @@ jobs:
     - name: check ulimit
       shell: bash
       run: ulimit
+    - name: check if GDB exists
+      shell: bash
+      run: gdb --version
+    - name: check if LLDB exists
+      shell: bash
+      run: lldb --version
     - name: checkout OpenDDS
       uses: actions/checkout@v3
       with:
