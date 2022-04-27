@@ -355,7 +355,7 @@ jobs:
     - name: check if core file was generated
       shell: bash
       run: |
-        ls OpenDDS/tests/Messenger | grep core
+        ls OpenDDS/tests/DCPS/Messenger | grep core
     - name: upload autobuild output
       uses: actions/upload-artifact@v3
       with:
