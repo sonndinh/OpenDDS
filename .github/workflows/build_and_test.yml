@@ -86,6 +86,11 @@ jobs:
     - name: check ulimit
       shell: bash
       run: ulimit
+    - name: install gdb
+      shell: bash
+      run: |
+        sudo apt-get update
+        sudo apt-get install gdb
     - name: checkout OpenDDS
       uses: actions/checkout@v3
       with:
@@ -271,6 +276,11 @@ jobs:
         ulimit -c
         echo Setting ulimit to unlimited
         ulimit -c unlimited
+    - name: install gdb
+      shell: bash
+      run: |
+        sudo apt-get update
+        sudo apt-get install gdb
     - name: checkout MPC
       uses: actions/checkout@v3
       with:
