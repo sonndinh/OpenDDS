@@ -91,6 +91,10 @@ jobs:
       with:
         path: OpenDDS
         submodules: true
+    - name: try listing OpenDDS directory
+      shell: bash
+      run: |
+        ls OpenDDS/tests/DCPS/Messenger | grep core
     - name: checkout ACE_TAO
       uses: actions/checkout@v3
       with:
@@ -352,10 +356,6 @@ jobs:
         </autobuild>
         EOF
         $GITHUB_WORKSPACE/autobuild/autobuild.pl "$GITHUB_WORKSPACE/OpenDDS/${{ github.job }}_autobuild_workspace/config.xml"
-    - name: check if core file was generated
-      shell: bash
-      run: |
-        ls OpenDDS/tests/DCPS/Messenger | grep core
     - name: upload autobuild output
       uses: actions/upload-artifact@v3
       with:
