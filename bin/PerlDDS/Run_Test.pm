@@ -466,7 +466,7 @@ sub print_stacktrace {
     return;
   }
   # Debug message
-  printf STDERR "DEBUG: Core file pattern /proc/sys/kernel/core_pattern exists\n";
+  printf STDOUT "DEBUG: Core file pattern /proc/sys/kernel/core_pattern exists\n";
 
   my $pattern_fh;
   if (!open($pattern_fh, "<", "$core_pattern_file")) {
@@ -478,7 +478,7 @@ sub print_stacktrace {
   chomp($line);
   close($pattern_fh);
   # Debug message
-  printf STDERR "DEBUG: Core pattern $line\n";
+  printf STDOUT "DEBUG: Core pattern $line\n";
 
   # Find the core file from the pattern
   my $last_slash_idx = rindex($line, "/");
@@ -528,7 +528,7 @@ sub print_stacktrace {
     $pattern = $pattern . "." . _getpid($process);
   }
   # Debug message
-  printf STDERR "DEBUG: Pattern so far $pattern\n";
+  printf STDOUT "DEBUG: Pattern so far $pattern\n";
 
   my $timestamp_idx = index($pattern, "%t");
   my $core_file_path;
@@ -569,20 +569,20 @@ sub print_stacktrace {
     return;
   }
   # Debug message.
-  printf STDERR "DEBUG: Found core file $core_file_path\n";
+  printf STDOUT "DEBUG: Found core file $core_file_path\n";
 
   # Print stack trace.
   my $stack_trace;
 
   # Debug message
   my $has_gdb = system("gdb --version");
-  printf STDERR "DEBUG: \"gdb --version\" returned $has_gdb\n";
+  printf STDOUT "DEBUG: \"gdb --version\" returned $has_gdb\n";
   my $has_lldb = system("lldb --version");
-  printf STDERR "DEBUG: \"lldb --version\" returned $has_lldb\n";
+  printf STDOUT "DEBUG: \"lldb --version\" returned $has_lldb\n";
 
   if (system("gdb --version") != -1) {
     # Debug message
-    printf STDERR "DEBUG: Printing stack trace with gdb...\n";
+    printf STDOUT "DEBUG: Printing stack trace with gdb...\n";
     $stack_trace = `gdb $exec_path -c $core_file_path -ex bt -ex quit`;
   } elsif (system("lldb --version") != -1) {
     printf STDERR "WARNING: Failed printing stack trace with gdb. Trying lldb...\n";
@@ -592,12 +592,12 @@ sub print_stacktrace {
   }
 
   if (defined $stack_trace) {
-    printf STDERR "\n======= Stack trace from core file $core_file_path =======\n";
-    printf STDERR $stack_trace;
-    printf STDERR "\n";
+    printf STDOUT "\n======= Stack trace from core file $core_file_path =======\n";
+    printf STDOUT $stack_trace;
+    printf STDOUT "\n";
   } else {
     # Debug message
-    printf STDERR "DEBUG: stack trace is undef\n";
+    printf STDOUT "DEBUG: stack trace is undef\n";
   }
 }
 
@@ -616,11 +616,11 @@ sub wait_kill {
 
   if (!defined $opts) {
     #Debug message
-    printf STDERR "DEBUG: No opts from user provided\n";
+    printf STDOUT "DEBUG: No opts from user provided\n";
     $my_opts{dump_ref} = \$has_core;
   } elsif (!$opts->{self_crash}) {
     # Debug message
-    printf STDERR "DEBUG: Process does not self-crash\n";
+    printf STDOUT "DEBUG: Process does not self-crash\n";
     $my_opts{dump_ref} = \$has_core;
     if (defined $opts->{signal_ref}) {
       $my_opts{signal_ref} = $opts->{signal_ref};
@@ -628,7 +628,7 @@ sub wait_kill {
   } else {
     # We don't want to print out stack trace in case of self-crash.
     # Debug message
-    printf STDERR "DEBUG: Process self-crash. We are not printing stack trace\n";
+    printf STDOUT "DEBUG: Process self-crash. We are not printing stack trace\n";
     $print_stack_trace = 0;
     $my_opts{self_crash} = 1;
     $my_opts{dump_ref} = \$has_core;
@@ -644,13 +644,13 @@ sub wait_kill {
   }
 
   # Debug message
-  printf STDERR "DEBUG: print_stack_trace is $print_stack_trace\n";
+  printf STDOUT "DEBUG: print_stack_trace is $print_stack_trace\n";
   if (defined $has_core) {
-    printf STDERR "DEBUG: has_core is $has_core\n";
+    printf STDOUT "DEBUG: has_core is $has_core\n";
   }
   if ($print_stack_trace && $has_core) {
     # Debug message
-    printf STDERR "DEBUG: There is core file. Going to print out stack trace\n";
+    printf STDOUT "DEBUG: There is core file. Going to print out stack trace\n";
     $self->print_stacktrace($process);
   }
   return $result;
