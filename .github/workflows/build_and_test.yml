@@ -590,6 +590,7 @@ jobs:
     - name: run OpenDDS tests
       shell: bash
       run: |
+        sudo su
         ulimit -c unlimited
         echo "Contents of /cores before: "
         ls /cores
@@ -623,7 +624,7 @@ jobs:
         <command name="process_logs" options="prettify"/>
         </autobuild>
         EOF
-        sudo $GITHUB_WORKSPACE/autobuild/autobuild.pl "$GITHUB_WORKSPACE/OpenDDS/${{ github.job }}_autobuild_workspace/config.xml"
+        $GITHUB_WORKSPACE/autobuild/autobuild.pl "$GITHUB_WORKSPACE/OpenDDS/${{ github.job }}_autobuild_workspace/config.xml"
         echo "Contents of /cores after: "
         ls /cores
     - name: upload autobuild output
