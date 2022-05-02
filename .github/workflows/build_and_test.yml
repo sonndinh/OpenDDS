@@ -590,6 +590,7 @@ jobs:
     - name: run OpenDDS tests
       shell: bash
       run: |
+        sudo su
         ulimit -c unlimited
         echo "Contents of /cores before: "
         ls /cores
