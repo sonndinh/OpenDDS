@@ -595,7 +595,7 @@ jobs:
         echo "Contents of /cores before: "
         ls /cores
         echo "Changing permission to /cores..."
-        chmod -R +rwx /cores
+        chmod -R 777 /cores
         echo "Show stat /cores:"
         stat /cores
         echo "Running sysctl kern.coredump"
