@@ -590,6 +590,9 @@ jobs:
     - name: run OpenDDS tests
       shell: bash
       run: |
+        ulimit -c unlimited
+        echo "Contents of /cores before: "
+        ls /cores
         cd OpenDDS
         echo "export ACE_TEST_LOG_STUCK_STACKS=1" >> setenv.sh
         . setenv.sh
@@ -621,6 +624,8 @@ jobs:
         </autobuild>
         EOF
         $GITHUB_WORKSPACE/autobuild/autobuild.pl "$GITHUB_WORKSPACE/OpenDDS/${{ github.job }}_autobuild_workspace/config.xml"
+        echo "Contents of /cores after: "
+        ls /cores
     - name: upload autobuild output
       uses: actions/upload-artifact@v3
       with:
