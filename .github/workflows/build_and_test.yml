@@ -594,6 +594,8 @@ jobs:
         ulimit -c unlimited
         echo "Contents of /cores before: "
         ls /cores
+        echo "Show stat /cores:"
+        stat /cores
         cd OpenDDS
         echo "export ACE_TEST_LOG_STUCK_STACKS=1" >> setenv.sh
         . setenv.sh
