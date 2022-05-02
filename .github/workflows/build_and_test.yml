@@ -594,6 +594,10 @@ jobs:
         ulimit -c unlimited
         echo "Contents of /cores before: "
         ls /cores
+        echo "Creating a file in /cores..."
+        touch /cores/test
+        ls /cores
+        rm /cores/test
         echo "Show stat /cores:"
         stat /cores
         cd OpenDDS
