@@ -600,6 +600,8 @@ jobs:
         rm /cores/test
         echo "Show stat /cores:"
         stat /cores
+        echo "Running sysctl kern.coredump"
+        sysctl kern.coredump
         cd OpenDDS
         echo "export ACE_TEST_LOG_STUCK_STACKS=1" >> setenv.sh
         . setenv.sh
