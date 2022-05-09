@@ -79,7 +79,7 @@ void print_network_info()
 
   addrinfo hints;
   std::memset(&hints, 0, sizeof hints);
-  hints.ai_family = address_family;
+  hints.ai_family = AF_UNSPEC;
 
   // The ai_flags used to contain AI_ADDRCONFIG as well but that prevented
   // lookups from completing if there is no, or only a loopback, IPv6
@@ -102,6 +102,14 @@ void print_network_info()
   // back to unrestricted hints and weed out the duplicate addresses by
   // searching this->inet_addrs_ which would slow things down.
   hints.ai_socktype = SOCK_STREAM;
+
+  union ip46
+  {
+    sockaddr_in  in4_;
+#ifdef ACE_HAS_IPV6
+    sockaddr_in6 in6_;
+#endif /* ACE_HAS_IPV6 */
+  };
 
   size_t addr_count;
   ACE_INET_Addr *addr_array = 0;
