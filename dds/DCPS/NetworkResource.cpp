@@ -66,6 +66,100 @@ OPENDDS_BEGIN_VERSIONED_NAMESPACE_DECL
 namespace OpenDDS {
 namespace DCPS {
 
+void print_network_info()
+{
+  struct LogGuard {
+    LogGuard() {
+      ACE_DEBUG((LM_DEBUG, "(%P|%t) ~~~~~~~~~~~~~~~ BEGIN print_network_info....\n"));
+    }
+    ~LogGuard() {
+      ACE_DEBUG((LM_DEBUG, "(%P|%t) ~~~~~~~~~~~~~~~ END print_network_info....\n"));
+    }
+  } log_guard;
+
+  addrinfo hints;
+  std::memset(&hints, 0, sizeof hints);
+  hints.ai_family = address_family;
+
+  // The ai_flags used to contain AI_ADDRCONFIG as well but that prevented
+  // lookups from completing if there is no, or only a loopback, IPv6
+  // interface configured. See Bugzilla 4211 for more info.
+
+#if defined ACE_HAS_IPV6 && !defined IPV6_V6ONLY
+  hints.ai_flags |= AI_V4MAPPED;
+#endif
+
+#if defined ACE_HAS_IPV6 && defined AI_ALL
+  // Without AI_ALL, Windows machines exhibit inconsistent behaviors on
+  // difference machines we have tested.
+  hints.ai_flags |= AI_ALL;
+#endif
+
+  // Note - specify the socktype here to avoid getting multiple entries
+  // returned with the same address for different socket types or
+  // protocols. If this causes a problem for some reason (an address that's
+  // available for TCP but not UDP, or vice-versa) this will need to change
+  // back to unrestricted hints and weed out the duplicate addresses by
+  // searching this->inet_addrs_ which would slow things down.
+  hints.ai_socktype = SOCK_STREAM;
+
+  size_t addr_count;
+  ACE_INET_Addr *addr_array = 0;
+
+  // Ignoring port number information for now.
+  unsigned short port_number = 0;
+
+  const int result = ACE::get_ip_interfaces(addr_count, addr_array);
+  if (result != 0 || addr_count < 1) {
+    ACE_ERROR((LM_ERROR,
+               ACE_TEXT("(%P|%t) ERROR: print_network_info: Unable to probe network. %p\n"),
+               ACE_TEXT("ACE::get_ip_interfaces")));
+    return;
+  } else {
+    // For each interface address, find its hostname. Then resolve the hostname back
+    // to a list of addresses for that hostname.
+    for (size_t i = 0; i < addr_count; i++) {
+      char hostname[MAXHOSTNAMELEN+1] = "";
+      if (ACE::get_fqdn(addr_array[i], hostname, MAXHOSTNAMELEN+1) == 0) {
+        ACE_DEBUG((LM_DEBUG, "(%P|%t) DEBUG: print_network_info: Address %C maps to hostname %C\n", LogAddr(addr_array[i]).c_str(), hostname));
+        addrinfo *res = 0;
+        const int error = ACE_OS::getaddrinfo(hostname, 0, &hints, &res);
+        if (error) {
+          ACE_DEBUG((LM_WARNING, "(%P|%t) ERROR: print_network_info: Call to getaddrinfo() for hostname %C returned error: %d\n", hostname, error));
+          continue;
+        }
+        ACE_DEBUG((LM_DEBUG, "(%P|%t) DEBUG: print_network_info: Printing addresses returned from getaddrinfo for hostname %C...\n", hostname));
+        for (addrinfo* curr = res; curr; curr = curr->ai_next) {
+          if (curr->ai_family != AF_INET && curr->ai_family != AF_INET6) {
+            continue;
+          }
+          ip46 addr;
+          std::memset(&addr, 0, sizeof addr);
+          std::memcpy(&addr, curr->ai_addr, curr->ai_addrlen);
+#ifdef ACE_HAS_IPV6
+          if (curr->ai_family == AF_INET6) {
+            addr.in6_.sin6_port = ACE_NTOHS(port_number);
+          } else {
+#endif /* ACE_HAS_IPV6 */
+            addr.in4_.sin_port = ACE_NTOHS(port_number);;
+#ifdef ACE_HAS_IPV6
+    }
+#endif /* ACE_HAS_IPV6 */
+
+          ACE_INET_Addr temp;
+          temp.set_addr(&addr, sizeof addr);
+          temp.set_port_number(port_number, 1 /*encode*/);
+          ACE_DEBUG((LM_DEBUG, "(%P|%t) DEBUG: print_network_info: Found address %C\n", LogAddr(temp).c_str()));
+        }
+        ACE_OS::freeaddrinfo(res);
+      } else {
+        ACE_ERROR((LM_ERROR, "(%P|%t) ERROR: print_network_info: Unable to get fqdn for address %C\n",
+                   LogAddr(addr_array[i]).c_str()))
+      }
+    }
+  }
+}
+
 String get_fully_qualified_hostname(ACE_INET_Addr* addr)
 {
   // cache the determined fully qualified hostname and its
@@ -73,9 +167,10 @@ String get_fully_qualified_hostname(ACE_INET_Addr* addr)
   static String fullname;
   static ACE_INET_Addr selected_address;
 
-    struct LogGuard {
+  struct LogGuard {
     LogGuard() {
       ACE_DEBUG((LM_DEBUG, "(%P|%t) XXXXXXXXXXXXXXX BEGIN get_fully_qualified_hostname....\n"));
+      print_network_info();
     }
     ~LogGuard() {
       size_t addr_count;
@@ -92,6 +187,7 @@ String get_fully_qualified_hostname(ACE_INET_Addr* addr)
       }
       delete [] addr_array;
 
+      print_network_info();
       ACE_DEBUG((LM_DEBUG, "(%P|%t) XXXXXXXXXXXXXXX END get_fully_qualified_hostname - hostname: %C, IP address: %C\n",
                  fullname.c_str(), LogAddr(selected_address).c_str()));
     }
@@ -691,7 +787,7 @@ ACE_INET_Addr choose_single_coherent_address(const OPENDDS_VECTOR(ACE_INET_Addr)
     //    return tie_breaker(addresses, name);
   }
 
-  ACE_DEBUG((LM_DEBUG, "(%P|%t) choose_single_coherent_address(list) return empty address\n"));
+  ACE_DEBUG((LM_DEBUG, "(%P|%t) chooose_single_coherent_address(list) return empty address\n"));
   return ACE_INET_Addr();
 }
 
