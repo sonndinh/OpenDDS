@@ -162,7 +162,7 @@ void print_network_info()
         ACE_OS::freeaddrinfo(res);
       } else {
         ACE_ERROR((LM_ERROR, "(%P|%t) ERROR: print_network_info: Unable to get fqdn for address %C\n",
-                   LogAddr(addr_array[i]).c_str()))
+                   LogAddr(addr_array[i]).c_str()));
       }
     }
   }
