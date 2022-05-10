@@ -159,6 +159,8 @@ void print_network_info()
           temp.set_port_number(port_number, 1 /*encode*/);
           ACE_DEBUG((LM_DEBUG, "(%P|%t) DEBUG: print_network_info: Found address %C\n", LogAddr(temp).c_str()));
         }
+        ACE_DEBUG((LM_DEBUG, "(%P|%t) DEBUG: print_network_info: Freeing results for hostname %C\n",
+                   hostname));
         ACE_OS::freeaddrinfo(res);
       } else {
         ACE_ERROR((LM_ERROR, "(%P|%t) ERROR: print_network_info: Unable to get fqdn for address %C\n",
