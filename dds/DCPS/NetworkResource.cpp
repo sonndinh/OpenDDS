@@ -66,12 +66,145 @@ OPENDDS_BEGIN_VERSIONED_NAMESPACE_DECL
 namespace OpenDDS {
 namespace DCPS {
 
+void print_network_info()
+{
+  struct LogGuard {
+    LogGuard() {
+      ACE_DEBUG((LM_DEBUG, "(%P|%t) ~~~~~~~~~~~~~~~ BEGIN print_network_info....\n"));
+    }
+    ~LogGuard() {
+      ACE_DEBUG((LM_DEBUG, "(%P|%t) ~~~~~~~~~~~~~~~ END print_network_info....\n"));
+    }
+  } log_guard;
+
+  addrinfo hints;
+  std::memset(&hints, 0, sizeof hints);
+  hints.ai_family = AF_UNSPEC;
+
+  // The ai_flags used to contain AI_ADDRCONFIG as well but that prevented
+  // lookups from completing if there is no, or only a loopback, IPv6
+  // interface configured. See Bugzilla 4211 for more info.
+
+#if defined ACE_HAS_IPV6 && !defined IPV6_V6ONLY
+  hints.ai_flags |= AI_V4MAPPED;
+#endif
+
+#if defined ACE_HAS_IPV6 && defined AI_ALL
+  // Without AI_ALL, Windows machines exhibit inconsistent behaviors on
+  // difference machines we have tested.
+  hints.ai_flags |= AI_ALL;
+#endif
+
+  // Note - specify the socktype here to avoid getting multiple entries
+  // returned with the same address for different socket types or
+  // protocols. If this causes a problem for some reason (an address that's
+  // available for TCP but not UDP, or vice-versa) this will need to change
+  // back to unrestricted hints and weed out the duplicate addresses by
+  // searching this->inet_addrs_ which would slow things down.
+  hints.ai_socktype = SOCK_STREAM;
+
+  union ip46
+  {
+    sockaddr_in  in4_;
+#ifdef ACE_HAS_IPV6
+    sockaddr_in6 in6_;
+#endif /* ACE_HAS_IPV6 */
+  };
+
+  size_t addr_count;
+  ACE_INET_Addr *addr_array = 0;
+
+  // Ignoring port number information for now.
+  unsigned short port_number = 0;
+
+  const int result = ACE::get_ip_interfaces(addr_count, addr_array);
+  if (result != 0 || addr_count < 1) {
+    ACE_ERROR((LM_ERROR,
+               ACE_TEXT("(%P|%t) ERROR: print_network_info: Unable to probe network. %p\n"),
+               ACE_TEXT("ACE::get_ip_interfaces")));
+    return;
+  } else {
+    // For each interface address, find its hostname. Then resolve the hostname back
+    // to a list of addresses for that hostname.
+    for (size_t i = 0; i < addr_count; i++) {
+      char hostname[MAXHOSTNAMELEN+1] = "";
+      if (ACE::get_fqdn(addr_array[i], hostname, MAXHOSTNAMELEN+1) == 0) {
+        ACE_DEBUG((LM_DEBUG, "(%P|%t) DEBUG: print_network_info: Address %C maps to hostname %C\n", LogAddr(addr_array[i]).c_str(), hostname));
+        addrinfo *res = 0;
+        const int error = ACE_OS::getaddrinfo(hostname, 0, &hints, &res);
+        if (error) {
+          ACE_DEBUG((LM_WARNING, "(%P|%t) ERROR: print_network_info: Call to getaddrinfo() for hostname %C returned error: %d\n", hostname, error));
+          continue;
+        }
+        ACE_DEBUG((LM_DEBUG, "(%P|%t) DEBUG: print_network_info: Printing addresses returned from getaddrinfo for hostname %C...\n", hostname));
+        int i = 0;
+        for (addrinfo* curr = res; curr; curr = curr->ai_next) {
+          if (curr->ai_family != AF_INET && curr->ai_family != AF_INET6) {
+            ACE_DEBUG((LM_DEBUG, "(%P|%t) DEBUG: print_network_info: Skipping address with ai_family different than AF_INET and AF_INET6\n"));
+            continue;
+          }
+          ACE_DEBUG((LM_DEBUG, "(%P|%t) DEBUG: print_network_info: Working on entry number %d\n", i++));
+          ip46 addr;
+          std::memset(&addr, 0, sizeof addr);
+          std::memcpy(&addr, curr->ai_addr, curr->ai_addrlen);
+#ifdef ACE_HAS_IPV6
+          if (curr->ai_family == AF_INET6) {
+            addr.in6_.sin6_port = ACE_NTOHS(port_number);
+          } else {
+#endif /* ACE_HAS_IPV6 */
+            addr.in4_.sin_port = ACE_NTOHS(port_number);;
+#ifdef ACE_HAS_IPV6
+          }
+#endif /* ACE_HAS_IPV6 */
+
+          ACE_INET_Addr temp;
+          temp.set_addr(&addr, sizeof addr);
+          temp.set_port_number(port_number, 1 /*encode*/);
+          ACE_DEBUG((LM_DEBUG, "(%P|%t) DEBUG: print_network_info: Found address %C\n", LogAddr(temp).c_str()));
+        }
+        ACE_DEBUG((LM_DEBUG, "(%P|%t) DEBUG: print_network_info: Freeing results for hostname %C\n",
+                   hostname));
+        ACE_OS::freeaddrinfo(res);
+      } else {
+        ACE_ERROR((LM_ERROR, "(%P|%t) ERROR: print_network_info: Unable to get fqdn for address %C\n",
+                   LogAddr(addr_array[i]).c_str()));
+      }
+    }
+  }
+}
+
 String get_fully_qualified_hostname(ACE_INET_Addr* addr)
 {
   // cache the determined fully qualified hostname and its
   // address to be used on subsequent calls
   static String fullname;
   static ACE_INET_Addr selected_address;
+
+  struct LogGuard {
+    LogGuard() {
+      ACE_DEBUG((LM_DEBUG, "(%P|%t) XXXXXXXXXXXXXXX BEGIN get_fully_qualified_hostname....\n"));
+      print_network_info();
+    }
+    ~LogGuard() {
+      size_t addr_count;
+      ACE_INET_Addr *addr_array = 0;
+      const int result = ACE::get_ip_interfaces(addr_count, addr_array);
+      if (result != 0 || addr_count < 1) {
+        ACE_ERROR((LM_ERROR,
+                   ACE_TEXT("(%P|%t) XXXXXXXXXXXXXXX ERROR: Unable to probe network when exiting. %p\n"),
+                   ACE_TEXT("ACE::get_ip_interfaces")));
+      } else {
+        for (size_t i = 0; i < addr_count; i++) {
+          ACE_DEBUG((LM_DEBUG, "(%P|%t) XXXXXXXXXXXXXXXX NetworkResource: found IP interface %C\n", LogAddr::ip(addr_array[i]).c_str()));
+        }
+      }
+      delete [] addr_array;
+
+      print_network_info();
+      ACE_DEBUG((LM_DEBUG, "(%P|%t) XXXXXXXXXXXXXXX END get_fully_qualified_hostname - hostname: %C, IP address: %C\n",
+                 fullname.c_str(), LogAddr(selected_address).c_str()));
+    }
+  } log_guard;
 
   if (fullname.length() == 0) {
     size_t addr_count;
@@ -95,7 +228,8 @@ String get_fully_qualified_hostname(ACE_INET_Addr* addr)
 
     } else {
       for (size_t i = 0; i < addr_count; i++) {
-        VDBG_LVL((LM_DEBUG, "(%P|%t) NetworkResource: found IP interface %C\n", LogAddr::ip(addr_array[i]).c_str()), 4);
+        //VDBG_LVL((LM_DEBUG, "(%P|%t) NetworkResource: found IP interface %C\n", LogAddr::ip(addr_array[i]).c_str()), 4);
+        ACE_DEBUG((LM_DEBUG, "(%P|%t) ============== NetworkResource: found IP interface %C\n", LogAddr::ip(addr_array[i]).c_str()));
       }
 
 #ifdef ACE_HAS_IPV6
@@ -117,9 +251,11 @@ String get_fully_qualified_hostname(ACE_INET_Addr* addr)
 
         // Discover the fully qualified hostname
         if (ACE::get_fqdn(addr_array[i], hostname, MAXHOSTNAMELEN+1) == 0) {
-          VDBG_LVL((LM_DEBUG, "(%P|%t) considering fqdn %C\n", hostname), 4);
+          //VDBG_LVL((LM_DEBUG, "(%P|%t) considering fqdn %C\n", hostname), 4);
+          ACE_DEBUG((LM_DEBUG, "(%P|%t) ============= considering fqdn %C\n", hostname));
           if (!addr_array[i].is_loopback() && ACE_OS::strchr(hostname, '.') != 0 && choose_single_coherent_address(hostname, false, false) != ACE_INET_Addr()) {
-            VDBG_LVL((LM_DEBUG, "(%P|%t) found fqdn %C from %C\n", hostname, LogAddr(addr_array[i]).c_str()), 2);
+            //VDBG_LVL((LM_DEBUG, "(%P|%t) found fqdn %C from %C\n", hostname, LogAddr(addr_array[i]).c_str()), 2);
+            ACE_DEBUG((LM_DEBUG, "(%P|%t) ============== found fqdn %C from %C\n", hostname, LogAddr(addr_array[i]).c_str()));
             selected_address = addr_array[i];
             fullname = hostname;
             if (addr) {
@@ -128,8 +264,10 @@ String get_fully_qualified_hostname(ACE_INET_Addr* addr)
             return fullname;
 
           } else {
-            VDBG_LVL((LM_DEBUG, "(%P|%t) ip interface %C maps to hostname %C\n",
-                      LogAddr(addr_array[i]).c_str(), hostname), 2);
+            //VDBG_LVL((LM_DEBUG, "(%P|%t) ip interface %C maps to hostname %C\n",
+            //          LogAddr(addr_array[i]).c_str(), hostname), 2);
+            ACE_DEBUG((LM_DEBUG, "(%P|%t) ============== ip interface %C maps to hostname %C\n",
+                       LogAddr(addr_array[i]).c_str(), hostname));
 
             if (ACE_OS::strncmp(hostname, "localhost", 9) == 0) {
               addr_array[i].get_host_addr(hostname, MAXHOSTNAMELEN);
@@ -139,6 +277,7 @@ String get_fully_qualified_hostname(ACE_INET_Addr* addr)
             info.index_ = i;
             info.hostname_ = hostname;
             if (choose_single_coherent_address(info.hostname_, false) != ACE_INET_Addr()) {
+              ACE_DEBUG((LM_DEBUG, "(%P|%t) ============== push HostnameInfo for hostname %C to nonFQDN\n", info.hostname_.c_str()));
               nonFQDN.push_back(info);
             }
           }
@@ -149,6 +288,7 @@ String get_fully_qualified_hostname(ACE_INET_Addr* addr)
     OpenDDS::DCPS::HostnameInfoVector::iterator itBegin = nonFQDN.begin();
     OpenDDS::DCPS::HostnameInfoVector::iterator itEnd = nonFQDN.end();
 
+    ACE_DEBUG((LM_DEBUG, "(%P|%t) ============== Looping through nonFQDN...\n"));
     for (OpenDDS::DCPS::HostnameInfoVector::iterator it = itBegin; it != itEnd; ++it) {
       if (!addr_array[it->index_].is_loopback()) {
         ACE_DEBUG((LM_WARNING, "(%P|%t) WARNING: Could not find FQDN. Using "
@@ -163,6 +303,7 @@ String get_fully_qualified_hostname(ACE_INET_Addr* addr)
       }
     }
 
+    ACE_DEBUG((LM_DEBUG, "(%P|%t) =============== End looping over nonFQDN. Keep looking....\n"));
     if (itBegin != itEnd) {
       ACE_DEBUG((LM_WARNING, "(%P|%t) WARNING: Could not find FQDN. Using "
                  "\"%C\" as fully qualified hostname, please "
@@ -541,21 +682,29 @@ ACE_INET_Addr choose_single_coherent_address(const OPENDDS_VECTOR(ACE_INET_Addr)
 #ifdef ACE_HAS_IPV6
     if (it->get_type() == AF_INET6 && !it->is_multicast()) {
       if (it->is_loopback()) {
-        VDBG((LM_DEBUG, "(%P|%t) choose_single_coherent_address(list) - "
+        //VDBG((LM_DEBUG, "(%P|%t) choose_single_coherent_address(list) - "
+        //  "Considering Address %C - ADDING TO IPv6 LOOPBACK LIST\n", LogAddr(*it).c_str()));
+        ACE_DEBUG((LM_DEBUG, "(%P|%t) choose_single_coherent_address(list) - "
           "Considering Address %C - ADDING TO IPv6 LOOPBACK LIST\n", LogAddr(*it).c_str()));
         set6_loopback.insert(*it);
       } else if (it->is_ipv4_mapped_ipv6() || it->is_ipv4_compat_ipv6()) {
 #ifndef IPV6_V6ONLY
-        VDBG((LM_DEBUG, "(%P|%t) choose_single_coherent_address(list) - "
+        //VDBG((LM_DEBUG, "(%P|%t) choose_single_coherent_address(list) - "
+        //  "Considering Address %C - ADDING TO IPv6 MAPPED / COMPATIBLE IPv4 LIST\n", LogAddr(*it).c_str()));
+        ACE_DEBUG((LM_DEBUG, "(%P|%t) choose_single_coherent_address(list) - "
           "Considering Address %C - ADDING TO IPv6 MAPPED / COMPATIBLE IPv4 LIST\n", LogAddr(*it).c_str()));
         set6_mapped_v4.insert(*it);
 #endif  // ! IPV6_V6ONLY
       } else if (it->is_linklocal()) {
-        VDBG((LM_DEBUG, "(%P|%t) choose_single_coherent_address(list) - "
+        //VDBG((LM_DEBUG, "(%P|%t) choose_single_coherent_address(list) - "
+        //  "Considering Address %C - ADDING TO IPv6 LINK-LOCAL LIST\n", LogAddr(*it).c_str()));
+        ACE_DEBUG((LM_DEBUG, "(%P|%t) choose_single_coherent_address(list) - "
           "Considering Address %C - ADDING TO IPv6 LINK-LOCAL LIST\n", LogAddr(*it).c_str()));
         set6_linklocal.insert(*it);
       } else {
-        VDBG((LM_DEBUG, "(%P|%t) choose_single_coherent_address(list) - "
+        //VDBG((LM_DEBUG, "(%P|%t) choose_single_coherent_address(list) - "
+        //  "Considering Address %C - ADDING TO IPv6 NORMAL LIST\n", LogAddr(*it).c_str()));
+        ACE_DEBUG((LM_DEBUG, "(%P|%t) choose_single_coherent_address(list) - "
           "Considering Address %C - ADDING TO IPv6 NORMAL LIST\n", LogAddr(*it).c_str()));
         set6.insert(*it);
       }
@@ -563,11 +712,15 @@ ACE_INET_Addr choose_single_coherent_address(const OPENDDS_VECTOR(ACE_INET_Addr)
 #endif // ACE_HAS_IPV6
     if (it->get_type() == AF_INET && !it->is_multicast()) {
       if (it->is_loopback()) {
-        VDBG((LM_DEBUG, "(%P|%t) choose_single_coherent_address(list) - "
+        //VDBG((LM_DEBUG, "(%P|%t) choose_single_coherent_address(list) - "
+        //  "Considering Address %C - ADDING TO IPv4 LOOPBACK LIST\n", LogAddr(*it).c_str()));
+        ACE_DEBUG((LM_DEBUG, "(%P|%t) choose_single_coherent_address(list) - "
           "Considering Address %C - ADDING TO IPv4 LOOPBACK LIST\n", LogAddr(*it).c_str()));
         set4_loopback.insert(*it);
       } else {
-        VDBG((LM_DEBUG, "(%P|%t) choose_single_coherent_address(list) - "
+        //VDBG((LM_DEBUG, "(%P|%t) choose_single_coherent_address(list) - "
+        //  "Considering Address %C - ADDING TO IPv4 NORMAL LIST\n", LogAddr(*it).c_str()));
+        ACE_DEBUG((LM_DEBUG, "(%P|%t) choose_single_coherent_address(list) - "
           "Considering Address %C - ADDING TO IPv4 NORMAL LIST\n", LogAddr(*it).c_str()));
         set4.insert(*it);
       }
@@ -576,47 +729,78 @@ ACE_INET_Addr choose_single_coherent_address(const OPENDDS_VECTOR(ACE_INET_Addr)
 
 #ifdef ACE_HAS_IPV6
   if (prefer_loopback && !set6_loopback.empty()) {
-    return tie_breaker(set6_loopback, name);
+    ACE_INET_Addr ret = tie_breaker(set6_loopback, name);
+    ACE_DEBUG((LM_DEBUG, "(%P|%t) choose_single_coherent_address(list) return %C\n", LogAddr(ret).c_str()));
+    return ret;
+    //return tie_breaker(set6_loopback, name);
   }
 #endif // ACE_HAS_IPV6
 
   if (prefer_loopback && !set4_loopback.empty()) {
-    return tie_breaker(set4_loopback, name);
+    ACE_INET_Addr ret = tie_breaker(set4_loopback, name);
+    ACE_DEBUG((LM_DEBUG, "(%P|%t) choose_single_coherent_address(list) return %C\n", LogAddr(ret).c_str()));
+    return ret;
+    //    return tie_breaker(set4_loopback, name);
   }
 
 #ifdef ACE_HAS_IPV6
   if (prefer_loopback && !set6_linklocal.empty()) {
-    return tie_breaker(set6_linklocal, name);
+    ACE_INET_Addr ret = tie_breaker(set6_linklocal, name);
+    ACE_DEBUG((LM_DEBUG, "(%P|%t) choose_single_coherent_address(list) return %C\n", LogAddr(ret).c_str()));
+    return ret;
+    //    return tie_breaker(set6_linklocal, name);
   }
   if (!set6.empty()) {
-    return tie_breaker(set6, name);
+    ACE_INET_Addr ret = tie_breaker(set6, name);
+    ACE_DEBUG((LM_DEBUG, "(%P|%t) choose_single_coherent_address(list) return %C\n", LogAddr(ret).c_str()));
+    return ret;
+    //    return tie_breaker(set6, name);
   }
   if (!set6_mapped_v4.empty()) {
-    return tie_breaker(set6_mapped_v4, name);
+    ACE_INET_Addr ret = tie_breaker(set6_mapped_v4, name);
+    ACE_DEBUG((LM_DEBUG, "(%P|%t) choose_single_coherent_address(list) return %C\n", LogAddr(ret).c_str()));
+    return ret;
+    //    return tie_breaker(set6_mapped_v4, name);
   }
 #endif // ACE_HAS_IPV6
 
   if (!set4.empty()) {
-    return tie_breaker(set4, name);
+    ACE_INET_Addr ret = tie_breaker(set4, name);
+    ACE_DEBUG((LM_DEBUG, "(%P|%t) choose_single_coherent_address(list) return %C\n", LogAddr(ret).c_str()));
+    return ret;
+    //    return tie_breaker(set4, name);
   }
 
 #ifdef ACE_HAS_IPV6
   if (!set6_linklocal.empty()) {
-    return tie_breaker(set6_linklocal, name);
+    ACE_INET_Addr ret = tie_breaker(set6_linklocal, name);
+    ACE_DEBUG((LM_DEBUG, "(%P|%t) choose_single_coherent_address(list) return %C\n", LogAddr(ret).c_str()));
+    return ret;
+    //    return tie_breaker(set6_linklocal, name);
   }
   if (!set6_loopback.empty()) {
-    return tie_breaker(set6_loopback, name);
+    ACE_INET_Addr ret = tie_breaker(set6_loopback, name);
+    ACE_DEBUG((LM_DEBUG, "(%P|%t) choose_single_coherent_address(list) return %C\n", LogAddr(ret).c_str()));
+    return ret;
+    //    return tie_breaker(set6_loopback, name);
   }
 #endif // ACE_HAS_IPV6
 
   if (!set4_loopback.empty()) {
-    return tie_breaker(set4_loopback, name);
+    ACE_INET_Addr ret = tie_breaker(set4_loopback, name);
+    ACE_DEBUG((LM_DEBUG, "(%P|%t) choose_single_coherent_address(list) return %C\n", LogAddr(ret).c_str()));
+    return ret;
+    //    return tie_breaker(set4_loopback, name);
   }
 
   if (!addresses.empty()) {
-    return tie_breaker(addresses, name);
+    ACE_INET_Addr ret = tie_breaker(addresses, name);
+    ACE_DEBUG((LM_DEBUG, "(%P|%t) choose_single_coherent_address(list) return %C\n", LogAddr(ret).c_str()));
+    return ret;
+    //    return tie_breaker(addresses, name);
   }
 
+  ACE_DEBUG((LM_DEBUG, "(%P|%t) chooose_single_coherent_address(list) return empty address\n"));
   return ACE_INET_Addr();
 }
 
@@ -700,6 +884,8 @@ ACE_INET_Addr choose_single_coherent_address(const String& address, bool prefer_
     inet_addr.in6_.sin6_family = AF_INET6;
     result.set_addr(&inet_addr, sizeof inet_addr);
     result.set_port_number(port_number, 1 /*encode*/);
+    ACE_DEBUG((LM_DEBUG, "(%P|%t) choose_single_coherent_address(hostname) return IPv6 address %C\n",
+               LogAddr(result).c_str()));
     return result;
   }
 #else
@@ -714,6 +900,8 @@ ACE_INET_Addr choose_single_coherent_address(const String& address, bool prefer_
     inet_addr.in4_.sin_family = AF_INET;
     result.set_addr(&inet_addr, sizeof inet_addr);
     result.set_port_number(port_number, 1 /*encode*/);
+    ACE_DEBUG((LM_DEBUG, "(%P|%t) choose_single_coherent_address(hostname) return IPv4 address %C\n",
+               LogAddr(result).c_str()));
     return result;
   }
 
@@ -747,7 +935,8 @@ ACE_INET_Addr choose_single_coherent_address(const String& address, bool prefer_
   const int error = ACE_OS::getaddrinfo(host_name, 0, &hints, &res);
 
   if (error) {
-    VDBG((LM_WARNING, "(%P|%t) choose_single_coherent_address() - Call to getaddrinfo() for hostname %C returned error: %d\n", host_name, error));
+    //VDBG((LM_WARNING, "(%P|%t) choose_single_coherent_address() - Call to getaddrinfo() for hostname %C returned error: %d\n", host_name, error));
+    ACE_DEBUG((LM_WARNING, "(%P|%t) choose_single_coherent_address() - Call to getaddrinfo() for hostname %C returned error: %d\n", host_name, error));
     return ACE_INET_Addr();
   }
 
@@ -767,13 +956,38 @@ ACE_INET_Addr choose_single_coherent_address(const String& address, bool prefer_
       ++it;
     }
   }
+  // Dump cache contents
+  ACE_DEBUG((LM_DEBUG, "(%P|%t) choose_single_coherent_address(hostname) - Cache contents BEGIN\n"));
+  for (AddrCacheMap::iterator it = addr_cache_map_.begin(); it != addr_cache_map_.end(); ++it) {
+    ACE_DEBUG((LM_DEBUG, "(%P|%t) Hostname %C:", it->first));
+    for (OPENDDS_SET(ACE_INET_Addr)::const_iterator iter = it->second.second.begin();
+         iter != it->second.second.end(); ++iter) {
+      ACE_DEBUG((LM_DEBUG, "%C ", LogAddr(*iter).c_str()));
+    }
+    ACE_DEBUG((LM_DEBUG, "\n"));
+  }
+  ACE_DEBUG((LM_DEBUG, "(%P|%t) choose_single_coherent_address(hostname) - Cache contents END\n"));
+  // Finish dumping cache contents
+
   AddrCacheMap::iterator it = addr_cache_map_.find(host_name);
   if (it != addr_cache_map_.end()) {
+    ACE_DEBUG((LM_DEBUG, "(%P|%t) choose_single_coherent_address(hostname) - adding cache addresses for hostname %C\n", host_name));
+    int i = 0;
+    for (OPENDDS_SET(ACE_INET_Addr)::const_iterator iter = it->second.second.begin();
+         iter != it->second.second.end(); ++iter) {
+      ACE_DEBUG((LM_DEBUG, "(%P|%t) choose_single_coherent_address(hostname) - address %d: %C\n",
+                 i, LogAddr(*iter).c_str()));
+    }
     addresses.insert(addresses.end(), it->second.second.begin(), it->second.second.end());
     it->second.first = now;
+  } else {
+    ACE_DEBUG((LM_DEBUG, "(%P|%t) choose_single_coherent_address(hostname) - No entry for hostname %C in cache\n", host_name));
   }
 #endif /* ACE_WIN32 */
 
+  ACE_DEBUG((LM_DEBUG, "(%P|%t) choose_single_coherent_address(hostname) - Considering addresses returned from getaddrinfo\n"));
+  // TODO(sonndinh): The order of the addresses returned by getaddrinfo can change from
+  // a call to the next. Should we sort them to have a consistent order?
   for (addrinfo* curr = res; curr; curr = curr->ai_next) {
     if (curr->ai_family != AF_INET && curr->ai_family != AF_INET6) {
       continue;
@@ -794,9 +1008,11 @@ ACE_INET_Addr choose_single_coherent_address(const String& address, bool prefer_
     ACE_INET_Addr temp;
     temp.set_addr(&addr, sizeof addr);
     temp.set_port_number(port_number, 1 /*encode*/);
+    ACE_DEBUG((LM_DEBUG, "(%P|%t) choose_single_coherent_address(hostname) - Add address %C to list to be considered\n", LogAddr(temp).c_str()));
     addresses.push_back(temp);
 #ifdef ACE_WIN32
     if (it != addr_cache_map_.end()) {
+      ACE_DEBUG((LM_DEBUG, "(%P|%t) choose_single_coherent_address(hostname) - Add address %C to the cache for hostname %C", LogAddr(temp).c_str(), host_name));
       it->second.second.insert(temp);
     }
 #endif /* ACE_WIN32 */
@@ -808,6 +1024,7 @@ ACE_INET_Addr choose_single_coherent_address(const String& address, bool prefer_
 
   ACE_OS::freeaddrinfo(res);
 
+  ACE_DEBUG((LM_DEBUG, "(%P|%t) choose_single_coherent_address(hostname) calling (list) version...\n"));
   return choose_single_coherent_address(addresses, prefer_loopback, host_name);
 }
 

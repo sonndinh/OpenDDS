@@ -479,7 +479,7 @@ TransportClient::PendingAssoc::initiate_connect(TransportClient* tc,
           } else {
             GuidConverter local(tc->repo_id_);
             GuidConverter remote(data_.remote_id_);
-            VDBG_LVL((LM_DEBUG, "(%P|%t) PendingAssoc::intiate_connect - "
+            VDBG_LVL((LM_DEBUG, "(%P|%t) PendingAssoc::initiate_connect - "
                                 "resulting link from initiate_connect_i (local: %C to remote: %C) was nil\n",
                                 OPENDDS_STRING(local).c_str(),
                                 OPENDDS_STRING(remote).c_str()), 0);
@@ -489,7 +489,7 @@ TransportClient::PendingAssoc::initiate_connect(TransportClient* tc,
         } else {
           GuidConverter local(tc->repo_id_);
           GuidConverter remote(data_.remote_id_);
-          VDBG_LVL((LM_DEBUG, "(%P|%t) PendingAssoc::intiate_connect - "
+          VDBG_LVL((LM_DEBUG, "(%P|%t) PendingAssoc::initiate_connect - "
                               "result of initiate_connect_i (local: %C to remote: %C) was not success\n",
                               OPENDDS_STRING(local).c_str(),
                               OPENDDS_STRING(remote).c_str()), 0);
