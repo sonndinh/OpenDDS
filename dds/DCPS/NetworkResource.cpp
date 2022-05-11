@@ -137,10 +137,13 @@ void print_network_info()
           continue;
         }
         ACE_DEBUG((LM_DEBUG, "(%P|%t) DEBUG: print_network_info: Printing addresses returned from getaddrinfo for hostname %C...\n", hostname));
+        int i = 0;
         for (addrinfo* curr = res; curr; curr = curr->ai_next) {
           if (curr->ai_family != AF_INET && curr->ai_family != AF_INET6) {
+            ACE_DEBUG((LM_DEBUG, "(%P|%t) DEBUG: print_network_info: Skipping address with ai_family different than AF_INET and AF_INET6\n"));
             continue;
           }
+          ACE_DEBUG((LM_DEBUG, "(%P|%t) DEBUG: print_network_info: Working on entry number %d\n", i++));
           ip46 addr;
           std::memset(&addr, 0, sizeof addr);
           std::memcpy(&addr, curr->ai_addr, curr->ai_addrlen);
@@ -151,7 +154,7 @@ void print_network_info()
 #endif /* ACE_HAS_IPV6 */
             addr.in4_.sin_port = ACE_NTOHS(port_number);;
 #ifdef ACE_HAS_IPV6
-    }
+          }
 #endif /* ACE_HAS_IPV6 */
 
           ACE_INET_Addr temp;
@@ -983,6 +986,8 @@ ACE_INET_Addr choose_single_coherent_address(const String& address, bool prefer_
 #endif /* ACE_WIN32 */
 
   ACE_DEBUG((LM_DEBUG, "(%P|%t) choose_single_coherent_address(hostname) - Considering addresses returned from getaddrinfo\n"));
+  // TODO(sonndinh): The order of the addresses returned by getaddrinfo can change from
+  // a call to the next. Should we sort them to have a consistent order?
   for (addrinfo* curr = res; curr; curr = curr->ai_next) {
     if (curr->ai_family != AF_INET && curr->ai_family != AF_INET6) {
       continue;
