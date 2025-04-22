@@ -8,10 +8,14 @@
 #ifndef RTPSRELAY_SMOKE_TEST_ARGS_H
 #define RTPSRELAY_SMOKE_TEST_ARGS_H
 
+#include <dds/DCPS/GuardCondition.h>
+
 #include <ace/Argv_Type_Converter.h>
+#include <ace/Event_Handler.h>
 #include <ace/Get_Opt.h>
 #include <ace/Log_Msg.h>
 #include <ace/OS_NS_stdlib.h>
+#include <ace/Sig_Handler.h>
 
 #include <iostream>
 #include <cstdlib>
@@ -61,5 +65,24 @@ Args::parse(int argc, ACE_TCHAR* argv[])
 
   return EXIT_SUCCESS;
 }
+
+struct ShutdownHandler : ACE_Event_Handler
+{
+  ShutdownHandler()
+  {
+    guard_ = new DDS::GuardCondition;
+    handler_.register_handler(SIGTERM, this);
+    handler_.register_handler(SIGINT, this);
+  }
+
+  int handle_signal(int, siginfo_t*, ucontext_t*)
+  {
+    guard_->set_trigger_value(true);
+    return 0;
+  }
+
+  DDS::GuardCondition_var guard_;
+  ACE_Sig_Handler handler_;
+};
 
 #endif
