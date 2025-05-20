@@ -59,7 +59,6 @@ GuidAddrSet::record_activity(const AddrPort& remote_address,
                  ACE_TEXT("%C added 0.000 s into session from %C\n"),
                  guid_to_string(src_guid).c_str(),
                  OpenDDS::DCPS::LogAddr(remote_address.addr).c_str()));
-         }
     }
     relay_stats_reporter_.local_active_participants(guid_addr_set_map_.size(), now);
     check_participants_limit();
