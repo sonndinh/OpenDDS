@@ -29,12 +29,10 @@ public:
 
   GuidPartitionTable(const Config& config,
                      const ACE_INET_Addr& address,
-                     RelayPartitionsDataWriter_var relay_partitions_writer,
-                     SpdpReplayDataWriter_var spdp_replay_writer)
+                     RelayPartitionsDataWriter_var relay_partitions_writer)
     : config_(config)
     , address_(OpenDDS::DCPS::LogAddr(address).c_str())
     , relay_partitions_writer_(relay_partitions_writer)
-    , spdp_replay_writer_(spdp_replay_writer)
   {}
 
   // Insert a reader/writer guid and its partitions.
@@ -124,35 +122,6 @@ private:
     // Invalidate the cache.
     const OpenDDS::DCPS::GUID_t prefix = make_id(guid, OpenDDS::DCPS::ENTITYID_UNKNOWN);
     guid_to_partitions_cache_.erase(prefix);
-  }
-
-  void populate_replay(SpdpReplay& spdp_replay,
-                       const OpenDDS::DCPS::GUID_t& guid,
-                       const std::vector<std::string>& to_add) const
-  {
-    // The partitions are new for this reader/writer.
-    // Check if they are new for the participant.
-
-    const OpenDDS::DCPS::GUID_t prefix = make_id(guid, OpenDDS::DCPS::ENTITYID_UNKNOWN);
-
-    for (const auto& part : to_add) {
-      const auto pos1 = partition_to_guid_.find(part);
-      if (pos1 == partition_to_guid_.end()) {
-        if (config_.allow_empty_partition() || !part.empty()) {
-          spdp_replay.partitions().push_back(part);
-        }
-        continue;
-      }
-
-      const auto pos2 = pos1->second.lower_bound(prefix);
-
-      if (pos2 == pos1->second.end() ||
-          std::memcmp(pos2->guidPrefix, prefix.guidPrefix, sizeof(prefix.guidPrefix)) != 0) {
-        if (config_.allow_empty_partition() || !part.empty()) {
-          spdp_replay.partitions().push_back(part);
-        }
-      }
-    }
   }
 
   void add_new(std::vector<RelayPartitions>& relay_partitions, const StringSet& partitions)
@@ -251,8 +220,6 @@ private:
   FreeSlotList free_slot_list_;
   typedef std::unordered_map<std::string, size_t> PartitionToSlot;
   PartitionToSlot partition_to_slot_;
-
-  SpdpReplayDataWriter_var spdp_replay_writer_;
 
   typedef std::map<OpenDDS::DCPS::GUID_t, StringSet, OpenDDS::DCPS::GUID_tKeyLessThan> GuidToPartitions;
   GuidToPartitions guid_to_partitions_;
