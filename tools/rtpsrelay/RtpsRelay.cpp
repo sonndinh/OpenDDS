@@ -20,6 +20,10 @@
 #include "SpdpReplayListener.h"
 #include "StatisticsWriterListener.h"
 #include "SubscriptionListener.h"
+#include "DrainConfig.h"
+#include "DrainManager.h"
+#include "DrainTimer.h"
+#include "RelayControlHandler.h"
 
 #include <dds/DCPS/BuiltInTopicUtils.h>
 #include <dds/DCPS/DomainParticipantImpl.h>
@@ -264,6 +268,15 @@ int run(int argc, ACE_TCHAR* argv[])
       args.consume_arg();
     } else if ((arg = args.get_the_parameter("-Id"))) {
       config.relay_id(arg);
+      args.consume_arg();
+    } else if ((arg = args.get_the_parameter("-EnableDrainFeature"))) {
+      config.set_drain_feature_enabled(ACE_OS::atoi(arg));
+      args.consume_arg();
+    } else if ((arg = args.get_the_parameter("-DrainRatePerSecond"))) {
+      config.set_drain_rate_per_second(ACE_OS::atoi(arg));
+      args.consume_arg();
+    } else if ((arg = args.get_the_parameter("-DrainCheckIntervalMs"))) {
+      config.set_drain_check_interval_ms(ACE_OS::atoi(arg));
       args.consume_arg();
     } else {
       ACE_ERROR((LM_ERROR, "(%P|%t) ERROR: Invalid option: %C\n", args.get_current()));
@@ -961,7 +974,66 @@ int run(int argc, ACE_TCHAR* argv[])
     return EXIT_FAILURE;
   }
 
-  RelayStatusReporter relay_status_reporter(config, guid_addr_set, relay_status_writer, reactor);
+  // Add these changes to integrate drain control
+
+  // Parse drain configuration from Config class
+  DrainConfig drain_config;
+  drain_config.enable_drain_feature = config.drain_feature_enabled();
+  drain_config.drain_rate_per_second = config.drain_rate_per_second();
+  drain_config.drain_check_interval_ms = config.drain_check_interval_ms();
+
+  // Create drain manager
+  DrainManager drain_manager(drain_config, config.relay_id());
+
+  // Connect drain manager with GuidAddrSet
+  guid_addr_set.set_drain_manager(&drain_manager);
+
+  // Set up drain timer
+  DrainTimer drain_timer(drain_manager, guid_addr_set, drain_config.drain_check_interval_ms);
+  if (drain_config.enable_drain_feature) {
+    drain_timer.start();
+  }
+
+  // Register RelayControl topic for drain control commands
+  RelayControlTypeSupport_var relay_control_ts = new RelayControlTypeSupportImpl;
+  if (relay_control_ts->register_type(relay_participant, "") != DDS::RETCODE_OK) {
+    ACE_ERROR((LM_ERROR, ACE_TEXT("(%P|%t) ERROR: failed to register RelayControl type\n")));
+    return EXIT_FAILURE;
+  }
+  CORBA::String_var relay_control_type_name = relay_control_ts->get_type_name();
+
+  DDS::Topic_var relay_control_topic =
+    relay_participant->create_topic(RELAY_CONTROL_TOPIC_NAME.c_str(),
+                                   relay_control_type_name,
+                                   TOPIC_QOS_DEFAULT, nullptr,
+                                   OpenDDS::DCPS::DEFAULT_STATUS_MASK);
+
+  if (!relay_control_topic) {
+    ACE_ERROR((LM_ERROR, ACE_TEXT("(%P|%t) ERROR: failed to create Relay Control topic\n")));
+    return EXIT_FAILURE;
+  }
+
+  // Create RelayControl subscriber
+  DDS::DataReaderQos relay_control_qos;
+  relay_subscriber->get_default_datareader_qos(relay_control_qos);
+  relay_control_qos.reliability.kind = DDS::RELIABLE_RELIABILITY_QOS;
+
+  RelayControlHandler* relay_control_handler = new RelayControlHandler(config.relay_id(), drain_manager);
+  DDS::DataReaderListener_var relay_control_listener(relay_control_handler);
+  DDS::DataReader_var relay_control_reader = relay_subscriber->create_datareader(
+    relay_control_topic,
+    relay_control_qos,
+    relay_control_listener,
+    DDS::DATA_AVAILABLE_STATUS);
+
+  if (!relay_control_reader) {
+    ACE_ERROR((LM_ERROR, ACE_TEXT("(%P|%t) ERROR: failed to create Relay Control data reader\n")));
+    return EXIT_FAILURE;
+  }
+
+  // Update RelayStatusReporter to include drain status information
+  // Modify the existing creation of relay_status_reporter to pass drain_manager
+  RelayStatusReporter relay_status_reporter(config, guid_addr_set, relay_status_writer, reactor, &drain_manager);
 
   RelayHttpMetaDiscovery relay_http_meta_discovery(config, meta_discovery_content_type, meta_discovery_content, guid_addr_set);
   if (relay_http_meta_discovery.open(meta_discovery_addr, reactor) != 0) {

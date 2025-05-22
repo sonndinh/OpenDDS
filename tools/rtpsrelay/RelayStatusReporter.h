@@ -6,21 +6,31 @@
 
 #include <dds/rtpsrelaylib/RelayTypeSupportImpl.h>
 
+// Forward declaration for the DrainManager
+namespace RtpsRelay {
+class DrainManager;
+}
+
 namespace RtpsRelay {
 
 class RelayStatusReporter : public ACE_Event_Handler {
 public:
   RelayStatusReporter(const Config& config,
-                      GuidAddrSet& guid_addr_set,
-                      RelayStatusDataWriter_var writer,
-                      ACE_Reactor* reactor);
+                      const GuidAddrSet& guid_addr_set,
+                      RelayStatusDataWriter_var status_writer,
+                      ACE_Reactor* reactor,
+                      DrainManager* drain_manager = nullptr);
 
   int handle_timeout(const ACE_Time_Value& now, const void* token) override;
 
 private:
-  GuidAddrSet& guid_addr_set_;
-  RelayStatusDataWriter_var writer_;
-  RelayStatus relay_status_;
+  void report_relay_status();
+
+  const Config& config_;
+  const GuidAddrSet& guid_addr_set_;
+  RelayStatusDataWriter_var status_writer_;
+  ACE_Reactor* reactor_;
+  DrainManager* drain_manager_;
 };
 
 }

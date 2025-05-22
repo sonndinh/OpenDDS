@@ -37,6 +37,9 @@ public:
     , max_ips_per_client_(0)
     , admission_max_participants_high_water_(0)
     , admission_max_participants_low_water_(0)
+    , drain_feature_enabled_(true)
+    , drain_rate_per_second_(2)
+    , drain_check_interval_ms_(1000)
   {}
 
   void relay_id(const std::string& value)
@@ -349,6 +352,16 @@ public:
     return admission_max_participants_low_water_;
   }
 
+  // Drain control settings
+  bool drain_feature_enabled() const { return drain_feature_enabled_; }
+  void set_drain_feature_enabled(bool value) { drain_feature_enabled_ = value; }
+  
+  unsigned drain_rate_per_second() const { return drain_rate_per_second_; }
+  void set_drain_rate_per_second(unsigned value) { drain_rate_per_second_ = value; }
+  
+  unsigned drain_check_interval_ms() const { return drain_check_interval_ms_; }
+  void set_drain_check_interval_ms(unsigned value) { drain_check_interval_ms_ = value; }
+
 private:
   std::string relay_id_;
   OpenDDS::DCPS::GUID_t application_participant_guid_;
@@ -381,6 +394,9 @@ private:
   OpenDDS::DCPS::TimeDuration rejected_address_duration_;
   size_t admission_max_participants_high_water_;
   size_t admission_max_participants_low_water_;
+  bool drain_feature_enabled_;
+  unsigned drain_rate_per_second_;
+  unsigned drain_check_interval_ms_;
 };
 
 }

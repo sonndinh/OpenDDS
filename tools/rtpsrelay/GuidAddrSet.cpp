@@ -330,4 +330,76 @@ void GuidAddrSet::check_participants_limit()
   }
 }
 
+bool GuidAddrSet::should_admit(const OpenDDS::DCPS::GUID_t& guid) const
+{
+  // Don't admit new participants when in DRAINING or DRAINED state
+  if (drain_manager_ && drain_manager_->get_state() != ACTIVE) {
+    return false;
+  }
+  
+  // Continue with existing admission control logic
+  return true;
 }
+
+bool GuidAddrSet::admitting() const
+{
+  // Original admission control logic
+  if (config_.admission_max_participants() && 
+      guid_addr_set_map_.size() >= config_.admission_max_participants()) {
+    return false;
+  }
+
+  if (participant_admission_limit_reached_) {
+    return false;
+  }
+
+  // Add drain state check
+  if (drain_manager_ && drain_manager_->get_state() != ACTIVE) {
+    return false;
+  }
+  
+  return true;
+}
+
+void GuidAddrSet::set_drain_manager(DrainManager* manager)
+{
+  drain_manager_ = manager;
+}
+
+void GuidAddrSet::remove_next_batch(unsigned count, std::vector<OpenDDS::DCPS::GUID_t>& removed)
+{
+  // We'll aim to remove a specific number of participants
+  unsigned removed_count = 0;
+  
+  // Using a vector of iterators because we'll be removing elements while iterating
+  std::vector<GuidAddrSetMap::iterator> to_remove;
+  
+  // Find candidates for removal - preferably participants that haven't been active recently
+  for (auto it = guid_addr_set_map_.begin(); 
+       it != guid_addr_set_map_.end() && removed_count < count; 
+       ++it) {
+    to_remove.push_back(it);
+    removed_count++;
+  }
+  
+  // Remove the selected participants
+  for (auto it : to_remove) {
+    removed.push_back(it->first);
+    
+    // Use the existing remove method to properly clean up
+    OpenDDS::DCPS::MonotonicTimePoint now = OpenDDS::DCPS::MonotonicTimePoint::now();
+    remove(it->first, it, now, &relay_participant_status_reporter_);
+  }
+  
+  if (!to_remove.empty() && config_.log_activity()) {
+    ACE_DEBUG((LM_INFO, ACE_TEXT("(%P|%t) INFO: GuidAddrSet::remove_next_batch ")
+              ACE_TEXT("Removed %d participants for draining\n"), to_remove.size()));
+  }
+}
+
+unsigned GuidAddrSet::get_participant_count() const
+{
+  return static_cast<unsigned>(guid_addr_set_map_.size());
+}
+
+} // namespace RtpsRelay

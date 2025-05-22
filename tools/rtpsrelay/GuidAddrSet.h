@@ -232,6 +232,8 @@ struct RemoteHash {
 class RelayHandler;
 class RelayParticipantStatusReporter;
 
+class DrainManager;
+
 class GuidAddrSet {
 public:
   typedef std::unordered_map<OpenDDS::DCPS::GUID_t, AddrSetStats, GuidHash> GuidAddrSetMap;
@@ -472,6 +474,12 @@ private:
   RejectedAddressExpirationQueue rejected_address_expiration_queue_;
   mutable ACE_Thread_Mutex mutex_;
   bool participant_admission_limit_reached_;
+  DrainManager* drain_manager_{nullptr};
+
+  // New methods for draining
+  void remove_next_batch(unsigned count, std::vector<OpenDDS::DCPS::GUID_t>& removed);
+  unsigned get_participant_count() const;
+  void set_drain_manager(DrainManager* manager);
 };
 
 }

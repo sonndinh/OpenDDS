@@ -58,9 +58,18 @@ module RtpsRelay {
 
   const string RELAY_STATUS_TOPIC_NAME = "Relay Status";
   @topic
+  @mutable  // Add mutable to allow extending structure in the future
   struct RelayStatus {
     @key string relay_id;
-    boolean admitting;
+    boolean admitting;  // Existing field - preserve functionality
+    
+    // New fields for drain state tracking
+    DrainState drain_state;                // Current drain state (ACTIVE, DRAINING, DRAINED)
+    unsigned long remaining_participants;  // Number of participants still connected
+    unsigned long total_participants;      // Total participants at start of draining
+    unsigned long long drain_start_time;   // Timestamp when draining started
+    unsigned long long last_update_time;   // Timestamp of last status update
+    unsigned long current_drain_rate;      // Current drain rate (participants/second)
   };
 
   const string RELAY_PARTICIPANT_STATUS_TOPIC_NAME = "Relay Participant Status";
@@ -172,6 +181,24 @@ module RtpsRelay {
     unsigned long remote_map_size;
     unsigned long max_ips_per_client;
     unsigned long rejected_address_map_size;
+  };
+
+  // Add enum for drain states
+  enum DrainState {
+    ACTIVE,    // Normal operation, admitting new clients
+    DRAINING,  // Not admitting new clients, gradually removing existing clients
+    DRAINED    // All clients removed, ready for termination
+  };
+
+  // Add topic name constants for drain control
+  const string RELAY_CONTROL_TOPIC_NAME = "Relay Control";
+
+  // Add unified control structure for all relay control commands
+  @topic
+  struct RelayControl {
+    @key string relay_id;       // Target relay instance
+    @key string command;        // Command name (e.g., "set_drain_state", "set_drain_rate")
+    unsigned long parameter;    // Command parameter value
   };
 };
 
