@@ -230,7 +230,7 @@ bool GuidAddrSet::ignore_rtps(bool from_application_participant,
     return false;
   }
 
-  if (!pos->second.has_discovery_addrs() || !pos->second.spdp_message) {
+  if (!pos->second.has_discovery_addrs() || !pos->second.seen_spdp_message) {
     // Don't have the necessary addresses or message to complete discovery.
     return true;
   }
