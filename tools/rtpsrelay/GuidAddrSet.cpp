@@ -330,17 +330,6 @@ void GuidAddrSet::check_participants_limit()
   }
 }
 
-bool GuidAddrSet::should_admit(const OpenDDS::DCPS::GUID_t& guid) const
-{
-  // Don't admit new participants when in DRAINING or DRAINED state
-  if (drain_manager_ && drain_manager_->get_state() != ACTIVE) {
-    return false;
-  }
-  
-  // Continue with existing admission control logic
-  return true;
-}
-
 bool GuidAddrSet::admitting() const
 {
   // Original admission control logic

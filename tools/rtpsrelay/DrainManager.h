@@ -1,17 +1,19 @@
 #ifndef RTPSRELAY_DRAIN_MANAGER_H
 #define RTPSRELAY_DRAIN_MANAGER_H
 
-#include "GuidAddrSet.h"
 #include "DrainConfig.h"
-#include "Relay.h"
-
+#include <dds/rtpsrelaylib/RelayC.h>
 #include <dds/DCPS/GUID.h>
+#include <dds/DCPS/TimeTypes.h>
 
 #include <chrono>
 #include <set>
 #include <string>
+#include <vector>
 
 namespace RtpsRelay {
+
+class GuidAddrSet;
 
 class DrainManager {
 public:
@@ -31,6 +33,10 @@ public:
   // Periodic drain process
   void process_drain_cycle(GuidAddrSet& guid_addr_set);
   
+  // Get values for status reporting
+  unsigned get_total_participants() const { return total_participants_; }
+  unsigned long long get_drain_start_time() const;
+  
   // Update the relay status with drain information
   void update_status(RelayStatus& status) const;
   
@@ -47,4 +53,4 @@ private:
 
 }
 
-#endif
+#endif // RTPSRELAY_DRAIN_MANAGER_H

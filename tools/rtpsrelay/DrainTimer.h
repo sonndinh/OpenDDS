@@ -2,12 +2,13 @@
 #define RTPSRELAY_DRAIN_TIMER_H
 
 #include "DrainManager.h"
-#include "GuidAddrSet.h"
 
 #include <ace/Event_Handler.h>
 #include <ace/Reactor.h>
 
 namespace RtpsRelay {
+
+class GuidAddrSet;
 
 class DrainTimer : public ACE_Event_Handler {
 public:
@@ -33,4 +34,4 @@ private:
 
 }
 
-#endif
+#endif // RTPSRELAY_DRAIN_TIMER_H
