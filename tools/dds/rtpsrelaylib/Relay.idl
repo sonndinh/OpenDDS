@@ -37,15 +37,25 @@ module RtpsRelay {
     @key EntityId_t entityId;
   };
 
-  typedef sequence<string> StringSequence;
-  typedef sequence<GUID_t> GuidSequence;
-
-  // Drain states definition
+   // Drain states definition
   enum DrainState {
     ACTIVE,    // Normal operation, admitting new clients
     DRAINING,  // Not admitting new clients, gradually removing existing clients
     DRAINED    // All clients removed, ready for termination
   };
+
+  // Group of drain related status fields
+  struct DrainStatus {
+    DrainState state;
+    unsigned long remaining_participants;
+    unsigned long total_participants;
+    unsigned long long start_time;
+    unsigned long long last_update_time;
+    unsigned long rate_per_second;
+  };
+
+  typedef sequence<string> StringSequence;
+  typedef sequence<GUID_t> GuidSequence;
 
   const string RELAY_PARTITIONS_TOPIC_NAME = "Relay Partitions";
   @topic
@@ -70,13 +80,8 @@ module RtpsRelay {
     @key string relay_id;
     boolean admitting;
     
-    // Add drain state tracking fields
-    DrainState drain_state;
-    unsigned long remaining_participants;
-    unsigned long total_participants;
-    unsigned long long drain_start_time;
-    unsigned long long last_update_time;
-    unsigned long current_drain_rate;
+    // Use the DrainStatus struct instead of individual fields
+    DrainStatus drain_status;
   };
 
   const string RELAY_PARTICIPANT_STATUS_TOPIC_NAME = "Relay Participant Status";
@@ -193,10 +198,14 @@ module RtpsRelay {
   // Add relay control topic for drain commands
   const string RELAY_CONTROL_TOPIC_NAME = "Relay Control";
 
+  // Command name constants
+  const string CMD_SET_DRAIN_STATE = "set_drain_state";
+  const string CMD_SET_DRAIN_RATE = "set_drain_rate";
+
   @topic
   struct RelayControl {
     @key string relay_id;
-    @key string command;
+    @key string command;  // Use CMD_* constants
     unsigned long parameter;
   };
 };

@@ -34,7 +34,7 @@ void RelayControlHandler::on_data_available(DDS::DataReader_ptr reader)
 void RelayControlHandler::process_command(const std::string& command, unsigned long parameter)
 {
   // Handle drain control commands
-  if (command == "set_drain_state") {
+  if (command == CMD_SET_DRAIN_STATE) {
     if (parameter < 3) { // Ensure valid DrainState enum value
       ACE_DEBUG((LM_INFO, ACE_TEXT("(%P|%t) INFO: RelayControlHandler::process_command: ")
                 ACE_TEXT("Setting drain state to %d\n"), parameter));
@@ -43,7 +43,7 @@ void RelayControlHandler::process_command(const std::string& command, unsigned l
       ACE_ERROR((LM_ERROR, ACE_TEXT("(%P|%t) ERROR: RelayControlHandler::process_command: ")
                 ACE_TEXT("Invalid drain state value: %d\n"), parameter));
     }
-  } else if (command == "set_drain_rate") {
+  } else if (command == CMD_SET_DRAIN_RATE) {
     ACE_DEBUG((LM_INFO, ACE_TEXT("(%P|%t) INFO: RelayControlHandler::process_command: ")
               ACE_TEXT("Setting drain rate to %d participants/sec\n"), parameter));
     drain_manager_.set_drain_rate(parameter);

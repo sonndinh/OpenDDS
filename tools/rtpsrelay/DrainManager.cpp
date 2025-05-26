@@ -77,22 +77,13 @@ void DrainManager::process_drain_cycle(GuidAddrSet& guid_addr_set)
 
 void DrainManager::update_status(RelayStatus& status) const
 {
-  status.drain_state = state_;
-  status.remaining_participants = remaining_participants_;
-  status.total_participants = total_participants_;
-  
-  // Convert chrono time point to epoch time
-  if (state_ == DRAINING || state_ == DRAINED) {
-    auto now = std::chrono::steady_clock::now();
-    auto duration = std::chrono::duration_cast<std::chrono::seconds>(
-      now.time_since_epoch()).count();
-    status.drain_start_time = static_cast<unsigned long long>(duration);
-  } else {
-    status.drain_start_time = 0;
-  }
-  
-  status.last_update_time = static_cast<unsigned long long>(ACE_OS::gettimeofday().sec());
-  status.current_drain_rate = drain_rate_per_second_;
+  // Update using the new DrainStatus struct
+  status.drain_status().state(state_);
+  status.drain_status().remaining_participants(remaining_participants_);
+  status.drain_status().total_participants(total_participants_);
+  status.drain_status().start_time(get_drain_start_time());
+  status.drain_status().last_update_time(static_cast<unsigned long long>(ACE_OS::gettimeofday().sec()));
+  status.drain_status().rate_per_second(drain_rate_per_second_);
 }
 
-} 
+}

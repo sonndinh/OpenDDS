@@ -33,22 +33,21 @@ void RelayStatusReporter::report_relay_status()
   status.relay_id(config_.relay_id());
   status.admitting(guid_addr_set_.admitting());
   
-  // Add drain status information if drain_manager is available
+  // Initialize the drain_status with default values
+  DrainStatus drain_status;
+  drain_status.state(ACTIVE);
+  drain_status.remaining_participants(guid_addr_set_.get_participant_count());
+  drain_status.total_participants(guid_addr_set_.get_participant_count());
+  drain_status.start_time(0);
+  drain_status.last_update_time(static_cast<unsigned long long>(ACE_OS::gettimeofday().sec()));
+  drain_status.rate_per_second(0);
+  
+  // If drain_manager exists, let it update the status
   if (drain_manager_) {
-    status.drain_state(drain_manager_->get_state());
-    status.remaining_participants(guid_addr_set_.get_participant_count());
-    status.total_participants(drain_manager_->get_total_participants());
-    status.drain_start_time(drain_manager_->get_drain_start_time());
-    status.last_update_time(static_cast<unsigned long long>(ACE_OS::gettimeofday().sec()));
-    status.current_drain_rate(drain_manager_->get_drain_rate());
+    drain_manager_->update_status(status);
   } else {
-    // Default values if no drain manager is available
-    status.drain_state(ACTIVE);
-    status.remaining_participants(guid_addr_set_.get_participant_count());
-    status.total_participants(guid_addr_set_.get_participant_count());
-    status.drain_start_time(0);
-    status.last_update_time(static_cast<unsigned long long>(ACE_OS::gettimeofday().sec()));
-    status.current_drain_rate(0);
+    // Otherwise use the default values
+    status.drain_status(drain_status);
   }
   
   DDS::ReturnCode_t ret = status_writer_->write(status, DDS::HANDLE_NIL);
