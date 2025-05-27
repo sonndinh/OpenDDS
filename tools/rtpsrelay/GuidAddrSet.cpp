@@ -330,26 +330,6 @@ void GuidAddrSet::check_participants_limit()
   }
 }
 
-bool GuidAddrSet::admitting() const
-{
-  // Original admission control logic
-  if (config_.admission_max_participants() && 
-      guid_addr_set_map_.size() >= config_.admission_max_participants()) {
-    return false;
-  }
-
-  if (participant_admission_limit_reached_) {
-    return false;
-  }
-
-  // Add drain state check
-  if (drain_manager_ && drain_manager_->get_state() != ACTIVE) {
-    return false;
-  }
-  
-  return true;
-}
-
 void GuidAddrSet::set_drain_manager(DrainManager* manager)
 {
   drain_manager_ = manager;

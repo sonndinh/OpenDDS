@@ -3,6 +3,7 @@
 
 #include "DrainConfig.h"
 #include <dds/rtpsrelaylib/RelayC.h>
+
 #include <dds/DCPS/GUID.h>
 #include <dds/DCPS/TimeTypes.h>
 
@@ -51,6 +52,6 @@ private:
   std::set<OpenDDS::DCPS::GUID_t> removed_participants_;
 };
 
-}
+} // namespace RtpsRelay
 
 #endif // RTPSRELAY_DRAIN_MANAGER_H

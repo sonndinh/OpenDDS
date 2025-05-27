@@ -13,6 +13,7 @@
 #include <ace/INET_Addr.h>
 
 namespace RtpsRelay {
+class DrainManager; // Forward declaration
 
 struct PortSet {
   std::map<u_short, OpenDDS::DCPS::MonotonicTimePoint> spdp_ports, sedp_ports, data_ports;
@@ -411,9 +412,22 @@ private:
 
   bool admitting() const
   {
-    const size_t limit = config_.admission_control_queue_size();
-    const bool limit_okay = !limit || admission_control_queue_.size() < limit;
-    return !participant_admission_limit_reached_ && limit_okay && relay_thread_monitor_.threads_okay();
+    // Original admission control logic
+    if (config_.admission_max_participants() && 
+        guid_addr_map_.size() >= config_.admission_max_participants()) {
+      return false;
+    }
+
+    if (participant_admission_limit_reached_) {
+      return false;
+    }
+
+    // Add drain state check
+    if (drain_manager_ && drain_manager_->get_state() != ACTIVE) {
+      return false;
+    }
+    
+    return true;
   }
 
   bool ignore_rtps(bool from_application_participant,
