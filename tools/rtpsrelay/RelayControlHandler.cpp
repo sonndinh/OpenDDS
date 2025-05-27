@@ -35,7 +35,7 @@ void RelayControlHandler::process_command(const std::string& command, unsigned l
 {
   // Handle drain control commands
   if (command == CMD_SET_DRAIN_STATE) {
-    if (parameter < 3) { // Ensure valid DrainState enum value
+    if (parameter <= 3) { // Updated to <= 3 to include the new state
       ACE_DEBUG((LM_INFO, ACE_TEXT("(%P|%t) INFO: RelayControlHandler::process_command: ")
                 ACE_TEXT("Setting drain state to %d\n"), parameter));
       drain_manager_.set_state(static_cast<DrainState>(parameter));

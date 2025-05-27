@@ -18,9 +18,17 @@ void DrainManager::set_state(DrainState state)
     return; // No change
   }
   
-  if (state == DRAINING && state_ == ACTIVE) {
+  if (state == DS_DRAINING && state_ == DS_ACTIVE) { // Changed from DRAINING/ACTIVE to DS_DRAINING/DS_ACTIVE
     // Starting to drain, record the start time
     drain_start_time_ = std::chrono::steady_clock::now();
+    ACE_DEBUG((LM_INFO, ACE_TEXT("(%P|%t) INFO: DrainManager::set_state: ")
+              ACE_TEXT("Starting drain process for relay %C\n"), relay_id_.c_str()));
+  } else if (state == DS_DRAINED) { // Changed from DRAINED to DS_DRAINED
+    ACE_DEBUG((LM_INFO, ACE_TEXT("(%P|%t) INFO: DrainManager::set_state: ")
+              ACE_TEXT("Drain process completed for relay %C\n"), relay_id_.c_str()));
+  } else if (state == DS_PAUSED) { // Add logging for the new PAUSED state
+    ACE_DEBUG((LM_INFO, ACE_TEXT("(%P|%t) INFO: DrainManager::set_state: ")
+              ACE_TEXT("Relay %C is now paused - not admitting new participants\n"), relay_id_.c_str()));
   }
   
   state_ = state;
@@ -38,7 +46,7 @@ bool DrainManager::is_participant_removed(const OpenDDS::DCPS::GUID_t& guid) con
 
 void DrainManager::process_drain_cycle(GuidAddrSet& guid_addr_set)
 {
-  if (state_ != DRAINING) {
+  if (state_ != DS_DRAINING) { // Changed from DRAINING to DS_DRAINING
     return;
   }
   
@@ -56,7 +64,7 @@ void DrainManager::process_drain_cycle(GuidAddrSet& guid_addr_set)
   
   if (to_remove == 0) {
     // All participants have been removed
-    set_state(DRAINED);
+    set_state(DS_DRAINED); // Changed from DRAINED to DS_DRAINED
     return;
   }
   
@@ -72,7 +80,7 @@ void DrainManager::process_drain_cycle(GuidAddrSet& guid_addr_set)
   remaining_participants_ -= removed.size();
   
   if (remaining_participants_ == 0) {
-    set_state(DRAINED);
+    set_state(DS_DRAINED); // Changed from DRAINED to DS_DRAINED
   }
 }
 

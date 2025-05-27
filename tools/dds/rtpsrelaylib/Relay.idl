@@ -39,9 +39,10 @@ module RtpsRelay {
 
    // Drain states definition
   enum DrainState {
-    ACTIVE,    // Normal operation, admitting new clients
-    DRAINING,  // Not admitting new clients, gradually removing existing clients
-    DRAINED    // All clients removed, ready for termination
+    DS_ACTIVE,    // Normal operation, admitting new clients
+    DS_PAUSED,    // Not admitting new clients, but retaining existing ones
+    DS_DRAINING,  // Not admitting new clients, gradually removing existing clients
+    DS_DRAINED    // All clients removed, ready for termination
   };
 
   // Group of drain related status fields

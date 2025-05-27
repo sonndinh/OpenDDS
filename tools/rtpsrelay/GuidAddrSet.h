@@ -422,8 +422,11 @@ private:
       return false;
     }
 
-    // Add drain state check
-    if (drain_manager_ && drain_manager_->get_state() != ACTIVE) {
+    // Add drain state check - don't admit if in PAUSED, DRAINING or DRAINED states
+    if (drain_manager_ && 
+        (drain_manager_->get_state() == DS_PAUSED || 
+         drain_manager_->get_state() == DS_DRAINING || 
+         drain_manager_->get_state() == DS_DRAINED)) {
       return false;
     }
     
