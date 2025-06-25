@@ -21,9 +21,10 @@ public:
                       ACE_Reactor* reactor,
                       DrainManager* drain_manager = nullptr);
 
+private:
   int handle_timeout(const ACE_Time_Value& now, const void* token) override;
 
-private:
+  const Config& config_;
   void report_relay_status();
 
   const Config& config_;

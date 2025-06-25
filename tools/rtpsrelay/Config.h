@@ -40,6 +40,8 @@ public:
     , drain_feature_enabled_(true)
     , drain_rate_per_second_(2)
     , drain_check_interval_ms_(1000)
+    , handler_threads_(1)
+    , synchronous_output_(false)
   {}
 
   void relay_id(const std::string& value)
@@ -362,6 +364,26 @@ public:
   unsigned drain_check_interval_ms() const { return drain_check_interval_ms_; }
   void set_drain_check_interval_ms(unsigned value) { drain_check_interval_ms_ = value; }
 
+  void handler_threads(size_t count)
+  {
+    handler_threads_ = count;
+  }
+
+  size_t handler_threads() const
+  {
+    return handler_threads_;
+  }
+
+  void synchronous_output(bool flag)
+  {
+    synchronous_output_ = flag;
+  }
+
+  bool synchronous_output() const
+  {
+    return synchronous_output_;
+  }
+
 private:
   std::string relay_id_;
   OpenDDS::DCPS::GUID_t application_participant_guid_;
@@ -394,6 +416,8 @@ private:
   OpenDDS::DCPS::TimeDuration rejected_address_duration_;
   size_t admission_max_participants_high_water_;
   size_t admission_max_participants_low_water_;
+  size_t handler_threads_;
+  bool synchronous_output_;
   bool drain_feature_enabled_;
   unsigned drain_rate_per_second_;
   unsigned drain_check_interval_ms_;

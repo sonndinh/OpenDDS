@@ -99,14 +99,6 @@ module RtpsRelay {
     DDS::UserDataQosPolicy user_data;
   };
 
-  const string SPDP_REPLAY_TOPIC_NAME = "SPDP Replay";
-  @topic
-  struct SpdpReplay {
-    StringSequence partitions;
-    string address;
-    GUID_t guid;
-  };
-
   struct RelayHeader {
     StringSequence to_partitions;
     GuidSequence to_guids;
@@ -160,6 +152,34 @@ module RtpsRelay {
     Duration_t max_queue_latency;
   };
 
+  @mutable
+  @autoid(HASH)
+  struct ClientPartitionStatistics {
+    unsigned long slots;
+    unsigned long free_slots;
+    unsigned long count;
+    unsigned long partition_index_cache;
+    unsigned long partition_index_nodes;
+    unsigned long guids;
+    unsigned long guids_cache;
+  };
+
+  @mutable
+  @autoid(HASH)
+  struct RelayPartitionStatistics {
+    unsigned long addresses;
+    unsigned long partition_index_cache;
+    unsigned long partition_index_nodes;
+    unsigned long slots;
+  };
+
+  @mutable
+  @autoid(HASH)
+  struct OpenDDSModuleStatistics {
+    string id;
+    map<string, unsigned long long> stats;
+  };
+
   const string RELAY_STATISTICS_TOPIC_NAME = "Relay Statistics";
   @topic
   @mutable
@@ -184,16 +204,25 @@ module RtpsRelay {
     unsigned long participant_statistics_sub_count;
     unsigned long relay_partitions_sub_count;
     unsigned long relay_participant_status_sub_count;
-    unsigned long spdp_replay_sub_count;
     unsigned long relay_address_sub_count;
     unsigned long relay_status_sub_count;
     unsigned long relay_partitions_pub_count;
     unsigned long relay_address_pub_count;
-    unsigned long spdp_replay_pub_count;
     unsigned long admission_deferral_count;
     unsigned long remote_map_size;
     unsigned long max_ips_per_client;
+    unsigned long total_client_ips;
+    unsigned long total_client_ports;
     unsigned long rejected_address_map_size;
+    unsigned long deactivation_queue_size;
+    unsigned long expiration_queue_size;
+    unsigned long admission_queue_size;
+    unsigned long transitions_to_admitting;
+    unsigned long transitions_to_nonadmitting;
+    unsigned long virtual_memory_kb;
+    ClientPartitionStatistics client_partitions;
+    RelayPartitionStatistics relay_partitions;
+    sequence<OpenDDSModuleStatistics> opendds_modules;
   };
 
   // Add relay control topic for drain commands

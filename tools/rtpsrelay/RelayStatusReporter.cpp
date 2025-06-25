@@ -11,6 +11,7 @@ RelayStatusReporter::RelayStatusReporter(const Config& config,
                                          ACE_Reactor* reactor,
                                          DrainManager* drain_manager)
   : config_(config)
+  , config_(config)
   , guid_addr_set_(guid_addr_set)
   , status_writer_(status_writer)
   , reactor_(reactor)
@@ -21,7 +22,7 @@ RelayStatusReporter::RelayStatusReporter(const Config& config,
   }
 }
 
-int RelayStatusReporter::handle_timeout(const ACE_Time_Value& /*now*/, const void* /*token*/)
+int RelayStatusReporter::handle_timeout(const ACE_Time_Value&, const void*)
 {
   report_relay_status();
   return 0;

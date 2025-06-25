@@ -16,14 +16,15 @@ add_executable(RtpsRelay
   ParticipantStatisticsReporter.cpp
   PublicationListener.cpp
   RelayAddressListener.cpp
+  RelayEventLoop.cpp
   RelayHandler.cpp
   RelayHttpMetaDiscovery.cpp
   RelayParticipantStatusReporter.cpp
   RelayPartitionsListener.cpp
+  RelayStatisticsReporter.cpp
   RelayStatusReporter.cpp
   RelayThreadMonitor.cpp
   RtpsRelay.cpp
-  SpdpReplayListener.cpp
   SubscriptionListener.cpp
 )
 _opendds_executable(RtpsRelay)
