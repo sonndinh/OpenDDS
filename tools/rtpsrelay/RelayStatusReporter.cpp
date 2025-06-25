@@ -40,7 +40,6 @@ void RelayStatusReporter::report_relay_status()
   drain_status.remaining_participants(guid_addr_set_.get_participant_count());
   drain_status.total_participants(guid_addr_set_.get_participant_count());
   drain_status.start_time(0);
-  drain_status.last_update_time(static_cast<unsigned long long>(ACE_OS::gettimeofday().sec()));
   drain_status.rate_per_second(0);
   
   // If drain_manager exists, let it update the status

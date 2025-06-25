@@ -51,7 +51,6 @@ module RtpsRelay {
     unsigned long remaining_participants;
     unsigned long total_participants;
     unsigned long long start_time;
-    unsigned long long last_update_time;
     unsigned long rate_per_second;
   };
 
@@ -76,12 +75,9 @@ module RtpsRelay {
 
   const string RELAY_STATUS_TOPIC_NAME = "Relay Status";
   @topic
-  @mutable
   struct RelayStatus {
     @key string relay_id;
     boolean admitting;
-    
-    // Use the DrainStatus struct instead of individual fields
     DrainStatus drain_status;
   };
 
@@ -232,11 +228,19 @@ module RtpsRelay {
   const string CMD_SET_DRAIN_STATE = "set_drain_state";
   const string CMD_SET_DRAIN_RATE = "set_drain_rate";
 
+ // Define parameter value union
+  union ParameterValue switch (unsigned short) {
+    case 0: unsigned long longValue;
+    case 1: string stringValue;
+    case 2: double doubleValue;
+    case 3: boolean boolValue;
+  };
+
   @topic
   struct RelayControl {
     @key string relay_id;
     @key string command;  // Use CMD_* constants
-    unsigned long parameter;
+    ParameterValue parameter;
   };
 };
 

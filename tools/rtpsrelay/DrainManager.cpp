@@ -92,7 +92,6 @@ void DrainManager::update_status(RelayStatus& status) const
   drain_status.remaining_participants(remaining_participants_);
   drain_status.total_participants(total_participants_);
   drain_status.start_time(get_drain_start_time());
-  drain_status.last_update_time(static_cast<unsigned long long>(ACE_OS::gettimeofday().sec()));
   drain_status.rate_per_second(drain_rate_per_second_);
   status.drain_status(drain_status);
 }

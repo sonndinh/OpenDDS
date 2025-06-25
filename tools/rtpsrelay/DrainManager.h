@@ -43,14 +43,16 @@ private:
   std::string relay_id_;
   DrainState state_{DS_ACTIVE}; // Changed from ACTIVE to DS_ACTIVE
   unsigned drain_rate_per_second_;
-  unsigned drain_check_interval_ms_;
+  OpenDDS::DCPS::TimeDuration drain_check_interval_;
   std::chrono::steady_clock::time_point drain_start_time_;
   unsigned total_participants_{0};
   unsigned remaining_participants_{0};
   // Use the GUID_t defined in RelayC.h
   std::set<GUID_t> removed_participants_;
+  // Remove participants
+  std::vector<OpenDDS::DCPS::GUID_t> removed;
 };
 
-} // namespace RtpsRelay
+} 
 
-#endif // RTPSRELAY_DRAIN_MANAGER_H
+#endif 
