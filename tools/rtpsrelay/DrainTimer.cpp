@@ -1,4 +1,5 @@
 #include "DrainTimer.h"
+#include "GuidAddrSet.h"
 
 namespace RtpsRelay {
 
@@ -24,7 +25,7 @@ int DrainTimer::handle_timeout(const ACE_Time_Value&, const void*)
 void DrainTimer::start()
 {
   if (!active_) {
-    ACE_Time_Value interval(0, check_interval_ms_ * 1000);
+    ACE_Time_Value interval(0, check_interval_ms_ * 1000); // Convert to microseconds
     timer_id_ = ACE_Reactor::instance()->schedule_timer(
       this, 
       nullptr, 
@@ -43,4 +44,4 @@ void DrainTimer::stop()
   }
 }
 
-}
+} // namespace RtpsRelay

@@ -18,20 +18,19 @@ public:
   
   ~DrainTimer();
   
-  // ACE_Event_Handler method
-  int handle_timeout(const ACE_Time_Value&, const void*) override;
+  int handle_timeout(const ACE_Time_Value& tv, const void* arg) override;
   
   void start();
   void stop();
-
+  
 private:
   DrainManager& drain_manager_;
   GuidAddrSet& guid_addr_set_;
   unsigned check_interval_ms_;
-  long timer_id_{-1};
   bool active_{false};
+  long timer_id_{-1};
 };
 
-}
+} // namespace RtpsRelay
 
 #endif // RTPSRELAY_DRAIN_TIMER_H

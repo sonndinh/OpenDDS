@@ -36,7 +36,7 @@ void RelayStatusReporter::report_relay_status()
   
   // Initialize the drain_status with default values
   DrainStatus drain_status;
-  drain_status.state(ACTIVE);
+  drain_status.state(DrainState::DS_ACTIVE);
   drain_status.remaining_participants(guid_addr_set_.get_participant_count());
   drain_status.total_participants(guid_addr_set_.get_participant_count());
   drain_status.start_time(0);

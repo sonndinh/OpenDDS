@@ -9,7 +9,7 @@ namespace RtpsRelay {
 DrainManager::DrainManager(const DrainConfig& config, const std::string& relay_id)
   : relay_id_(relay_id)
   , drain_rate_per_second_(config.drain_rate_per_second)
-  , drain_check_interval_ms_(config.drain_check_interval_ms)
+  , drain_check_interval_(config.drain_check_interval)
 {}
 
 void DrainManager::set_state(DrainState state)
@@ -18,15 +18,15 @@ void DrainManager::set_state(DrainState state)
     return; // No change
   }
   
-  if (state == DS_DRAINING && state_ == DS_ACTIVE) { // Changed from DRAINING/ACTIVE to DS_DRAINING/DS_ACTIVE
+  if (state == DrainState::DS_DRAINING && state_ == DrainState::DS_ACTIVE) {
     // Starting to drain, record the start time
     drain_start_time_ = std::chrono::steady_clock::now();
     ACE_DEBUG((LM_INFO, ACE_TEXT("(%P|%t) INFO: DrainManager::set_state: ")
               ACE_TEXT("Starting drain process for relay %C\n"), relay_id_.c_str()));
-  } else if (state == DS_DRAINED) { // Changed from DRAINED to DS_DRAINED
+  } else if (state == DrainState::DS_DRAINED) {
     ACE_DEBUG((LM_INFO, ACE_TEXT("(%P|%t) INFO: DrainManager::set_state: ")
               ACE_TEXT("Drain process completed for relay %C\n"), relay_id_.c_str()));
-  } else if (state == DS_PAUSED) { // Add logging for the new PAUSED state
+  } else if (state == DrainState::DS_PAUSED) {
     ACE_DEBUG((LM_INFO, ACE_TEXT("(%P|%t) INFO: DrainManager::set_state: ")
               ACE_TEXT("Relay %C is now paused - not admitting new participants\n"), relay_id_.c_str()));
   }
@@ -92,6 +92,7 @@ void DrainManager::update_status(RelayStatus& status) const
   drain_status.remaining_participants(remaining_participants_);
   drain_status.total_participants(total_participants_);
   drain_status.start_time(get_drain_start_time());
+
   drain_status.rate_per_second(drain_rate_per_second_);
   status.drain_status(drain_status);
 }

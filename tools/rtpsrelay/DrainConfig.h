@@ -1,6 +1,8 @@
 #ifndef RTPSRELAY_DRAIN_CONFIG_H
 #define RTPSRELAY_DRAIN_CONFIG_H
 
+#include <dds/DCPS/TimeDuration.h>  // Add this include
+
 namespace RtpsRelay {
 
 struct DrainConfig {
@@ -11,4 +13,4 @@ struct DrainConfig {
 
 } 
 
-#endif 
+#endif
