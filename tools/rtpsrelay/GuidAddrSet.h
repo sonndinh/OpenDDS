@@ -294,6 +294,8 @@ public:
   // Get the number of participants
   size_t get_participant_count() const;
 
+  bool is_marked_for_drain(const OpenDDS::DCPS::GUID_t& guid) const;
+
 private:
   CreatedAddrSetStats find_or_create(const OpenDDS::DCPS::GUID_t& guid,
                                      const OpenDDS::DCPS::MonotonicTimePoint& now);

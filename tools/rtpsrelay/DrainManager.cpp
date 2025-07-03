@@ -49,7 +49,7 @@ bool DrainManager::is_participant_removed(const OpenDDS::DCPS::GUID_t& guid) con
 
 void DrainManager::process_drain_cycle(GuidAddrSet& guid_addr_set)
 {
-  if (state_ != DS_DRAINING) { // Changed from DRAINING to DS_DRAINING
+  if (state_ != DrainState::DS_DRAINING) {
     return;
   }
   
@@ -67,7 +67,7 @@ void DrainManager::process_drain_cycle(GuidAddrSet& guid_addr_set)
   
   if (to_remove == 0) {
     // All participants have been removed
-    set_state(DS_DRAINED); // Changed from DRAINED to DS_DRAINED
+    set_state(DrainState::DS_DRAINED);
     return;
   }
   
@@ -83,7 +83,7 @@ void DrainManager::process_drain_cycle(GuidAddrSet& guid_addr_set)
   remaining_participants_ -= removed.size();
   
   if (remaining_participants_ == 0) {
-    set_state(DS_DRAINED); // Changed from DRAINED to DS_DRAINED
+    set_state(DrainState::DS_DRAINED);
   }
 }
 
