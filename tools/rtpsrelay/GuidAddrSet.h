@@ -7,6 +7,7 @@
 #include "DrainManager.h" // Add this include
 
 #include <dds/rtpsrelaylib/Utility.h>
+#include <dds/DCPS/GUID.h>
 
 #include <dds/DCPS/TimeTypes.h>
 #include <dds/DCPS/RTPS/RtpsDiscovery.h>
@@ -296,6 +297,8 @@ public:
 
   bool is_marked_for_drain(const OpenDDS::DCPS::GUID_t& guid) const;
 
+  void set_drain_manager(DrainManager* manager);
+
 private:
   CreatedAddrSetStats find_or_create(const OpenDDS::DCPS::GUID_t& guid,
                                      const OpenDDS::DCPS::MonotonicTimePoint& now);
@@ -314,12 +317,19 @@ private:
 
   bool admitting() const
   {
-    // Original admission control logic
+    // Change this:
     if (config_.admission_max_participants() && 
-        guid_addr_set_map_.size() >= config_.admission_max_participants()) { // Fixed typo here
+        guid_addr_set_map_.size() >= config_.admission_max_participants()) {
+      return false;
+    }
+    
+    // To this:
+    if (config_.admission_max_participants_low_water() && 
+        guid_addr_set_map_.size() >= config_.admission_max_participants_high_water()) {
       return false;
     }
 
+    // Rest of the method stays the same
     if (participant_admission_limit_reached_) {
       return false;
     }
@@ -402,8 +412,6 @@ private:
   DrainManager* drain_manager_{nullptr};
 
   // New methods for draining
-  unsigned get_participant_count() const;
-  void set_drain_manager(DrainManager* manager);
   mutable bool last_admit_;
 
   // Set of participants marked for draining

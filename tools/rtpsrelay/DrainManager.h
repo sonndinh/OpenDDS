@@ -28,7 +28,7 @@ public:
   unsigned get_drain_rate() const { return drain_rate_per_second_; }
   
   // Check if a participant has been removed during draining
-  bool is_participant_removed(const GUID_t& guid) const;
+  bool is_participant_removed(const OpenDDS::DCPS::GUID_t& guid) const;
   
   // Periodic drain process
   void process_drain_cycle(GuidAddrSet& guid_addr_set);
@@ -48,7 +48,7 @@ private:
   std::chrono::steady_clock::time_point drain_start_time_;
   unsigned total_participants_{0};
   unsigned remaining_participants_{0};
-  std::set<GUID_t> removed_participants_;
+  std::set<OpenDDS::DCPS::GUID_t> removed_participants_;
 };
 
 } // namespace RtpsRelay

@@ -77,7 +77,7 @@ void DrainManager::process_drain_cycle(GuidAddrSet& guid_addr_set)
   
   // Add to the removed set
   for (const auto& guid : removed) {
-    removed_participants_.insert(guid);
+    removed_participants_.emplace(guid);
   }
   
   remaining_participants_ -= removed.size();
