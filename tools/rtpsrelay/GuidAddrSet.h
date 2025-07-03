@@ -4,6 +4,7 @@
 #include "ParticipantStatisticsReporter.h"
 #include "RelayStatisticsReporter.h"
 #include "RelayThreadMonitor.h"
+#include "DrainManager.h" // Add this include
 
 #include <dds/rtpsrelaylib/Utility.h>
 
@@ -13,7 +14,6 @@
 #include <ace/INET_Addr.h>
 
 namespace RtpsRelay {
-class DrainManager; // Forward declaration
 
 struct PortSet {
   using PortToExpirationMap = std::map<u_short, OpenDDS::DCPS::MonotonicTimePoint>;
@@ -316,7 +316,7 @@ private:
   {
     // Original admission control logic
     if (config_.admission_max_participants() && 
-        guid_addr_map_.size() >= config_.admission_max_participants()) {
+        guid_addr_set_map_.size() >= config_.admission_max_participants()) { // Fixed typo here
       return false;
     }
 
@@ -402,7 +402,6 @@ private:
   DrainManager* drain_manager_{nullptr};
 
   // New methods for draining
-  void remove_next_batch(unsigned count, std::vector<OpenDDS::DCPS::GUID_t>& removed);
   unsigned get_participant_count() const;
   void set_drain_manager(DrainManager* manager);
   mutable bool last_admit_;
