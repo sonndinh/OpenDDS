@@ -316,19 +316,12 @@ private:
 
   bool admitting() const
   {
-    // Change this:
-    if (config_.admission_max_participants() && 
-        guid_addr_set_map_.size() >= config_.admission_max_participants()) {
-      return false;
-    }
-    
-    // To this:
-    if (config_.admission_max_participants_low_water() && 
+    // Use the correct method names from the Config class
+    if (config_.admission_max_participants_low_water() > 0 && 
         guid_addr_set_map_.size() >= config_.admission_max_participants_high_water()) {
       return false;
     }
 
-    // Rest of the method stays the same
     if (participant_admission_limit_reached_) {
       return false;
     }
