@@ -170,8 +170,7 @@ void TransportImpl::fill_stats(StatisticSeq& stats, DDS::UInt32& idx) const
     GuardType guard(pending_connections_lock_);
     stats[idx++].value = pending_connections_.size();
   }
-  const ReactorInterceptor_rch inter = reactor_task_ ? reactor_task_->interceptor() : ReactorInterceptor_rch();
-  stats[idx++].value = inter ? inter->command_queue_size() : 0;
+  stats[idx++].value = reactor_task_ ? reactor_task_->command_queue_size() : 0;
 }
 
 }

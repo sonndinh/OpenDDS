@@ -700,7 +700,7 @@ RtpsUdpTransport::configure_i(const RtpsUdpInst_rch& config)
 
   const TimeDuration period = TheServiceParticipant->statistics_period();
   if (!period.is_zero()) {
-    stats_task_ = make_rch<PeriodicTask>(reactor_task()->interceptor(), *this, &RtpsUdpTransport::write_stats);
+    stats_task_ = make_rch<PeriodicTask>(reactor_task(), *this, &RtpsUdpTransport::write_stats);
     stats_task_->enable(false, period);
   }
 
