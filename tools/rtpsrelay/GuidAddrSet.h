@@ -7,7 +7,6 @@
 #include "DrainManager.h" // Add this include
 
 #include <dds/rtpsrelaylib/Utility.h>
-#include <dds/DCPS/GUID.h>
 
 #include <dds/DCPS/TimeTypes.h>
 #include <dds/DCPS/RTPS/RtpsDiscovery.h>
