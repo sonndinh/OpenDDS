@@ -13,8 +13,8 @@ class Config {
 public:
   Config()
     : application_participant_guid_(OpenDDS::DCPS::GUID_UNKNOWN)
-    , lifespan_(60) // 1 minute
-    , inactive_period_(60) // 1 minute
+    , lifespan_(60)
+    , inactive_period_(60)
 #ifdef ACE_DEFAULT_MAX_SOCKET_BUFSIZ
     , buffer_size_(ACE_DEFAULT_MAX_SOCKET_BUFSIZ)
 #else
@@ -37,11 +37,9 @@ public:
     , max_ips_per_client_(0)
     , admission_max_participants_high_water_(0)
     , admission_max_participants_low_water_(0)
-    , drain_feature_enabled_(true)
+    , drain_feature_enabled_(false)
     , drain_rate_per_second_(2)
-    , drain_check_interval_ms_(1000)
-    , handler_threads_(1)
-    , synchronous_output_(false)
+    , drain_check_interval_(OpenDDS::DCPS::TimeDuration(0, 1000000)) // 1 second
   {}
 
   void relay_id(const std::string& value)
@@ -354,35 +352,15 @@ public:
     return admission_max_participants_low_water_;
   }
 
-  // Drain control settings
+  // Drain feature parameters
   bool drain_feature_enabled() const { return drain_feature_enabled_; }
   void set_drain_feature_enabled(bool value) { drain_feature_enabled_ = value; }
   
   unsigned drain_rate_per_second() const { return drain_rate_per_second_; }
   void set_drain_rate_per_second(unsigned value) { drain_rate_per_second_ = value; }
   
-  unsigned drain_check_interval_ms() const { return drain_check_interval_ms_; }
-  void set_drain_check_interval_ms(unsigned value) { drain_check_interval_ms_ = value; }
-
-  void handler_threads(size_t count)
-  {
-    handler_threads_ = count;
-  }
-
-  size_t handler_threads() const
-  {
-    return handler_threads_;
-  }
-
-  void synchronous_output(bool flag)
-  {
-    synchronous_output_ = flag;
-  }
-
-  bool synchronous_output() const
-  {
-    return synchronous_output_;
-  }
+  const OpenDDS::DCPS::TimeDuration& drain_check_interval() const { return drain_check_interval_; }
+  void set_drain_check_interval(const OpenDDS::DCPS::TimeDuration& value) { drain_check_interval_ = value; }
 
 private:
   std::string relay_id_;
@@ -420,7 +398,7 @@ private:
   bool synchronous_output_;
   bool drain_feature_enabled_;
   unsigned drain_rate_per_second_;
-  unsigned drain_check_interval_ms_;
+  OpenDDS::DCPS::TimeDuration drain_check_interval_;
 };
 
 }

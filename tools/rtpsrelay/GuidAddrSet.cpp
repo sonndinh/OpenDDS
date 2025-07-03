@@ -321,6 +321,16 @@ bool GuidAddrSet::ignore_rtps(bool from_application_participant,
                               const OpenDDS::DCPS::MonotonicTimePoint& now,
                               bool& admitted)
 {
+  // First check if this participant is marked for draining
+  if (is_marked_for_drain(guid)) {
+    if (config_.log_activity()) {
+      ACE_DEBUG((LM_INFO, "(%P|%t) INFO: GuidAddrSet::ignore_rtps %C "
+                 "ignoring traffic for participant marked for draining\n",
+                 guid_to_string(guid).c_str()));
+    }
+    return true; // Ignore traffic from participants marked for draining
+  }
+
   const auto pos = guid_addr_set_map_.find(guid);
   if (pos == guid_addr_set_map_.end()) {
     return true;
@@ -448,40 +458,43 @@ void GuidAddrSet::set_drain_manager(DrainManager* manager)
   drain_manager_ = manager;
 }
 
+// Implementation of remove_next_batch
 void GuidAddrSet::remove_next_batch(unsigned count, std::vector<OpenDDS::DCPS::GUID_t>& removed)
 {
-  // We'll aim to remove a specific number of participants
-  unsigned removed_count = 0;
+  removed.clear();
   
-  // Using a vector of iterators because we'll be removing elements while iterating
-  std::vector<GuidAddrSetMap::iterator> to_remove;
+  // Mark participants for removal rather than removing them immediately
+  unsigned marked_count = 0;
   
-  // Find candidates for removal - preferably participants that haven't been active recently
   for (auto it = guid_addr_set_map_.begin(); 
-       it != guid_addr_set_map_.end() && removed_count < count; 
-       ++it) {
-    to_remove.push_back(it);
-    removed_count++;
-  }
-  
-  // Remove the selected participants
-  for (auto it : to_remove) {
-    removed.push_back(it->first);
+       it != guid_addr_set_map_.end() && marked_count < count; ++it) {
+    const OpenDDS::DCPS::GUID_t& guid = it->first;
     
-    // Use the existing remove method to properly clean up
-    OpenDDS::DCPS::MonotonicTimePoint now = OpenDDS::DCPS::MonotonicTimePoint::now();
-    remove(it->first, it, now, &relay_participant_status_reporter_);
+    // Skip if already marked for removal
+    if (drain_marked_participants_.find(guid) != drain_marked_participants_.end()) {
+      continue;
+    }
+    
+    // Mark this participant for removal
+    drain_marked_participants_.insert(guid);
+    removed.push_back(guid);
+    marked_count++;
+    
+    if (config_.log_activity()) {
+      ACE_DEBUG((LM_INFO, "(%P|%t) INFO: GuidAddrSet::remove_next_batch "
+                 "%C marked for draining\n",
+                 guid_to_string(guid).c_str()));
+    }
   }
   
-  if (!to_remove.empty() && config_.log_activity()) {
-    ACE_DEBUG((LM_INFO, ACE_TEXT("(%P|%t) INFO: GuidAddrSet::remove_next_batch ")
-              ACE_TEXT("Removed %d participants for draining\n"), to_remove.size()));
-  }
+  // Let the regular process_expirations handle the actual cleanup
+  // This provides a more gradual approach to draining
 }
 
-unsigned GuidAddrSet::get_participant_count() const
+// Add this to check if a participant is marked for draining
+// This would be called in your message handling code
+bool GuidAddrSet::is_marked_for_drain(const OpenDDS::DCPS::GUID_t& guid) const
 {
-  return static_cast<unsigned>(guid_addr_set_map_.size());
+  return drain_marked_participants_.find(guid) != drain_marked_participants_.end();
 }
-
 } // namespace RtpsRelay

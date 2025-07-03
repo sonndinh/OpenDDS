@@ -280,8 +280,8 @@ int run(int argc, ACE_TCHAR* argv[])
     } else if ((arg = args.get_the_parameter("-DrainRatePerSecond"))) {
       config.set_drain_rate_per_second(ACE_OS::atoi(arg));
       args.consume_arg();
-    } else if ((arg = args.get_the_parameter("-DrainCheckIntervalMs"))) {
-      config.set_drain_check_interval_ms(ACE_OS::atoi(arg));
+    } else if ((arg = args.get_the_parameter("-DrainCheckInterval"))) {
+      config.set_drain_check_interval(OpenDDS::DCPS::TimeDuration(ACE_OS::atoi(arg)));
       args.consume_arg();
     } else {
       ACE_ERROR((LM_ERROR, "(%P|%t) ERROR: Invalid option: %C\n", args.get_current()));
@@ -928,21 +928,12 @@ int run(int argc, ACE_TCHAR* argv[])
 
   // Add these changes to integrate drain control
 
-  // Parse drain configuration from Config class
-  DrainConfig drain_config;
-  drain_config.enable_drain_feature = config.drain_feature_enabled();
-  drain_config.drain_rate_per_second = config.drain_rate_per_second();
-  drain_config.drain_check_interval_ms = config.drain_check_interval_ms();
-
-  // Create drain manager
-  DrainManager drain_manager(drain_config, config.relay_id());
-
-  // Connect drain manager with GuidAddrSet
-  guid_addr_set.set_drain_manager(&drain_manager);
+  // Create drain manager using Config parameters directly
+  DrainManager drain_manager(config, config.relay_id());
 
   // Set up drain timer
-  DrainTimer drain_timer(drain_manager, guid_addr_set, drain_config.drain_check_interval_ms);
-  if (drain_config.enable_drain_feature) {
+  DrainTimer drain_timer(drain_manager, guid_addr_set, config.drain_check_interval());
+  if (config.drain_feature_enabled()) {
     drain_timer.start();
   }
 

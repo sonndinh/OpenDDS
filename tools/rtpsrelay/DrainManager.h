@@ -1,7 +1,7 @@
 #ifndef RTPSRELAY_DRAIN_MANAGER_H
 #define RTPSRELAY_DRAIN_MANAGER_H
 
-#include "DrainConfig.h"
+#include "Config.h"
 #include <dds/rtpsrelaylib/RelayC.h>
 #include <dds/DCPS/TimeDuration.h>
 #include <dds/DCPS/GuidUtils.h>
@@ -17,7 +17,7 @@ class GuidAddrSet;
 
 class DrainManager {
 public:
-  explicit DrainManager(const DrainConfig& config, const std::string& relay_id);
+  explicit DrainManager(const Config& config, const std::string& relay_id);
   
   // State management
   void set_state(DrainState state);

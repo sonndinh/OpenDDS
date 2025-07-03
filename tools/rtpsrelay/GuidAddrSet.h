@@ -287,6 +287,13 @@ public:
     Proxy& operator=(Proxy&&) = delete;
   };
 
+public:
+  // Remove up to 'count' participants and add their GUIDs to 'removed'
+  void remove_next_batch(unsigned count, std::vector<OpenDDS::DCPS::GUID_t>& removed);
+  
+  // Get the number of participants
+  size_t get_participant_count() const;
+
 private:
   CreatedAddrSetStats find_or_create(const OpenDDS::DCPS::GUID_t& guid,
                                      const OpenDDS::DCPS::MonotonicTimePoint& now);
@@ -397,6 +404,9 @@ private:
   unsigned get_participant_count() const;
   void set_drain_manager(DrainManager* manager);
   mutable bool last_admit_;
+
+  // Set of participants marked for draining
+  std::set<OpenDDS::DCPS::GUID_t> drain_marked_participants_;
 };
 
 }

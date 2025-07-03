@@ -6,11 +6,14 @@
 
 namespace RtpsRelay {
 
-DrainManager::DrainManager(const DrainConfig& config, const std::string& relay_id)
+DrainManager::DrainManager(const Config& config, const std::string& relay_id)
   : relay_id_(relay_id)
-  , drain_rate_per_second_(config.drain_rate_per_second)
-  , drain_check_interval_(config.drain_check_interval)
-{}
+  , state_(DrainState::DS_ACTIVE)
+  , drain_rate_per_second_(config.drain_rate_per_second())
+  , drain_check_interval_(config.drain_check_interval())
+{
+  // Initialization code
+}
 
 void DrainManager::set_state(DrainState state)
 {
@@ -82,6 +85,18 @@ void DrainManager::process_drain_cycle(GuidAddrSet& guid_addr_set)
   if (remaining_participants_ == 0) {
     set_state(DS_DRAINED); // Changed from DRAINED to DS_DRAINED
   }
+}
+
+unsigned long long DrainManager::get_drain_start_time() const
+{
+  if (state_ == DrainState::DS_DRAINING || state_ == DrainState::DS_DRAINED) {
+    // Convert the steady_clock time to epoch time (seconds since Jan 1, 1970)
+    auto now = std::chrono::system_clock::now();
+    auto duration = std::chrono::duration_cast<std::chrono::seconds>(
+      now.time_since_epoch());
+    return static_cast<unsigned long long>(duration.count());
+  }
+  return 0; // Return 0 if not draining or drained
 }
 
 void DrainManager::update_status(RelayStatus& status) const
