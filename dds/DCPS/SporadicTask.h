@@ -72,7 +72,7 @@ private:
 
   void schedule_i(const MonotonicTimePoint& next_time,
                   const TimeDuration& delay);
-  void update_schedule();
+  void update_schedule(ReactorWrapper& reactor_wrapper);
 
   int handle_timeout(const ACE_Time_Value& tv, const void*)
   {

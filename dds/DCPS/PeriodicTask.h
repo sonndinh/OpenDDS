@@ -125,8 +125,8 @@ class PmfPeriodicTask<const Delegate> : public PeriodicTask {
 public:
   typedef void (Delegate::*CPMF)(const MonotonicTimePoint&) const;
 
-  PmfPeriodicTask(RcHandle<ReactorInterceptor> interceptor, const Delegate& delegate, CPMF function)
-    : PeriodicTask(interceptor)
+  PmfPeriodicTask(ReactorTask_rch reactor_task, const Delegate& delegate, CPMF function)
+    : PeriodicTask(reactor_task)
     , delegate_(delegate)
     , function_(function)
     {}

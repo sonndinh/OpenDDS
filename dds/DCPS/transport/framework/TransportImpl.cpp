@@ -16,7 +16,6 @@
 #include "dds/DCPS/SubscriberImpl.h"
 #include "dds/DCPS/Util.h"
 #include "dds/DCPS/MonitorFactory.h"
-#include "dds/DCPS/ReactorInterceptor.h"
 #include "dds/DCPS/Service_Participant.h"
 #include "dds/DCPS/ServiceEventDispatcher.h"
 #include "tao/debug.h"
