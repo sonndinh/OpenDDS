@@ -25,8 +25,8 @@ void RelayControlHandler::on_data_available(DDS::DataReader_ptr reader)
   RelayControl control;
   DDS::SampleInfo info;
   while (control_reader->take_next_sample(control, info) == DDS::RETCODE_OK) {
-    if (info.valid_data && control.relay_id == relay_id_) {
-      process_command(control.command, control.parameter);
+    if (info.valid_data && control.relay_id() == relay_id_) {
+      process_command(control.command(), control.parameter());
     }
   }
 }

@@ -362,6 +362,8 @@ public:
   const OpenDDS::DCPS::TimeDuration& drain_check_interval() const { return drain_check_interval_; }
   void set_drain_check_interval(const OpenDDS::DCPS::TimeDuration& value) { drain_check_interval_ = value; }
 
+  size_t handler_threads() const { return handler_threads_; }
+
 private:
   std::string relay_id_;
   OpenDDS::DCPS::GUID_t application_participant_guid_;
