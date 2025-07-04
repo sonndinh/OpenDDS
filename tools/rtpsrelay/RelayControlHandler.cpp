@@ -31,7 +31,7 @@ void RelayControlHandler::on_data_available(DDS::DataReader_ptr reader)
   }
 }
 
-void RelayControlHandler::process_command(const std::string& command, unsigned long parameter)
+void RelayControlHandler::process_command(const std::string& command, ParameterValue parameter)
 {
   // Handle drain control commands
   if (command == CMD_SET_DRAIN_STATE) {
