@@ -2,7 +2,6 @@
 #define RTPSRELAY_RELAY_CONTROL_HANDLER_H
 
 #include "DrainManager.h"
-#include "Relay.h"
 
 #include <dds/DdsDcpsSubscriptionC.h>
 #include <dds/DCPS/DataReaderImpl.h>
