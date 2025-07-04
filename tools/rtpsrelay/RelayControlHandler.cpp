@@ -46,7 +46,7 @@ void RelayControlHandler::process_command(const std::string& command, ParameterV
   } else if (command == CMD_SET_DRAIN_RATE) {
     ACE_DEBUG((LM_INFO, ACE_TEXT("(%P|%t) INFO: RelayControlHandler::process_command: ")
               ACE_TEXT("Setting drain rate to %d participants/sec\n"), parameter));
-    drain_manager_.set_drain_rate(parameter);
+    drain_manager_.set_drain_rate(static_cast<unsigned int>(parameter));
   } else {
     ACE_DEBUG((LM_DEBUG, ACE_TEXT("(%P|%t) DEBUG: RelayControlHandler::process_command: ")
               ACE_TEXT("Unknown command: %C\n"), command.c_str()));
