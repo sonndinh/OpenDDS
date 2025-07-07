@@ -32,20 +32,21 @@ void RelayStatusReporter::report_relay_status()
   RelayStatus status;
   status.relay_id(config_.relay_id());
   status.admitting(guid_addr_set_.admitting());
+  status.participants(guid_addr_set_.get_participant_count());
   
-  // Initialize the drain_status with default values
+  // Create a properly initialized DDS::Time_t instead of using 0
+  DDS::Time_t zero_time = {0, 0};  // Initialize seconds and nanoseconds to 0
+  
   DrainStatus drain_status;
-  drain_status.state(DrainState::DS_ACTIVE);
-  drain_status.remaining_participants(guid_addr_set_.get_participant_count());
+  drain_status.state(DrainState::DS_ACTIVE);  // Default state
+  drain_status.remaining_participants(0);
   drain_status.total_participants(guid_addr_set_.get_participant_count());
-  drain_status.start_time(0);
+  drain_status.start_time(zero_time);  // Use the properly initialized Time_t
   drain_status.rate_per_second(0);
   
-  // If drain_manager exists, let it update the status
   if (drain_manager_) {
     drain_manager_->update_status(status);
   } else {
-    // Otherwise use the default values
     status.drain_status(drain_status);
   }
   
