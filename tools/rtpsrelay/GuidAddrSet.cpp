@@ -497,4 +497,10 @@ bool GuidAddrSet::is_marked_for_drain(const OpenDDS::DCPS::GUID_t& guid) const
 {
   return drain_marked_participants_.find(guid) != drain_marked_participants_.end();
 }
+
+size_t GuidAddrSet::get_participant_count() const
+{
+  ACE_GUARD_RETURN(ACE_Thread_Mutex, guard, mutex_, 0);
+  return guid_addr_set_map_.size();
+}
 } // namespace RtpsRelay
