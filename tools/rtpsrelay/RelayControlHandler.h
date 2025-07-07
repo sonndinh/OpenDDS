@@ -16,6 +16,9 @@ public:
   // Override all required virtual methods:
   void on_data_available(DDS::DataReader_ptr reader) override;
   
+  void on_requested_deadline_missed(DDS::DataReader_ptr,
+                                   const DDS::RequestedDeadlineMissedStatus&) override {}
+  
   void on_requested_incompatible_qos(DDS::DataReader_ptr, 
                                     const DDS::RequestedIncompatibleQosStatus&) override {}
   

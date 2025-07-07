@@ -7,13 +7,12 @@ namespace RtpsRelay {
 
 RelayStatusReporter::RelayStatusReporter(const Config& config,
                                          const GuidAddrSet& guid_addr_set,
-                                         RelayStatusDataWriter_var status_writer,
+                                         RelayStatusDataWriter_var writer,
                                          ACE_Reactor* reactor,
                                          DrainManager* drain_manager)
   : config_(config)
-  , config_(config)
   , guid_addr_set_(guid_addr_set)
-  , status_writer_(status_writer)
+  , writer_(writer)
   , reactor_(reactor)
   , drain_manager_(drain_manager)
 {
@@ -50,7 +49,7 @@ void RelayStatusReporter::report_relay_status()
     status.drain_status(drain_status);
   }
   
-  DDS::ReturnCode_t ret = status_writer_->write(status, DDS::HANDLE_NIL);
+  DDS::ReturnCode_t ret = writer_->write(status, DDS::HANDLE_NIL);
   if (ret != DDS::RETCODE_OK) {
     ACE_ERROR((LM_ERROR, ACE_TEXT("(%P|%t) ERROR: failed to write relay status\n")));
   }
