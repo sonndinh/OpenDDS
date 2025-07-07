@@ -32,8 +32,7 @@ void RelayStatusReporter::report_relay_status()
   RelayStatus status;
   status.relay_id(config_.relay_id());
   status.admitting(guid_addr_set_.admitting());
-  status.participants(guid_addr_set_.get_participant_count());
-  
+
   // Create a properly initialized DDS::Time_t instead of using 0
   DDS::Time_t zero_time = {0, 0};  // Initialize seconds and nanoseconds to 0
   
