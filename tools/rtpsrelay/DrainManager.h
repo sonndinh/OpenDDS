@@ -5,6 +5,7 @@
 #include <dds/rtpsrelaylib/RelayC.h>
 #include <dds/DCPS/TimeDuration.h>
 #include <dds/DCPS/GuidUtils.h>
+#include <dds/DdsDcpsInfrastructureC.h>
 
 #include <chrono>
 #include <set>
@@ -35,7 +36,7 @@ public:
   
   // Get values for status reporting
   unsigned get_total_participants() const { return total_participants_; }
-  unsigned long long get_drain_start_time() const;
+  DDS::Time_t get_drain_start_time() const;
   
   // Update the relay status with drain information
   void update_status(RelayStatus& status) const;

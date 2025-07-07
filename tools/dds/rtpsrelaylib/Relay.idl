@@ -50,7 +50,7 @@ module RtpsRelay {
     DrainState state;
     unsigned long remaining_participants;
     unsigned long total_participants;
-    unsigned long long start_time;
+    DDS::Time_t start_time;
     unsigned long rate_per_second;
   };
 

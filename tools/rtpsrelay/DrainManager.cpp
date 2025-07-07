@@ -87,16 +87,26 @@ void DrainManager::process_drain_cycle(GuidAddrSet& guid_addr_set)
   }
 }
 
-unsigned long long DrainManager::get_drain_start_time() const
+DDS::Time_t DrainManager::get_drain_start_time() const
 {
+  DDS::Time_t result = {0, 0}; // Initialize to zero
+
   if (state_ == DrainState::DS_DRAINING || state_ == DrainState::DS_DRAINED) {
-    // Convert the steady_clock time to epoch time (seconds since Jan 1, 1970)
+    // Convert the steady_clock time to system_clock time for epoch reference
     auto now = std::chrono::system_clock::now();
     auto duration = std::chrono::duration_cast<std::chrono::seconds>(
       now.time_since_epoch());
-    return static_cast<unsigned long long>(duration.count());
+    
+    // Fill in the DDS::Time_t structure
+    result.sec = static_cast<CORBA::Long>(duration.count());
+    
+    // Get nanoseconds part and convert to nanoseconds
+    auto nsec = std::chrono::duration_cast<std::chrono::nanoseconds>(
+      now.time_since_epoch()) % std::chrono::seconds(1);
+    result.nanosec = static_cast<CORBA::ULong>(nsec.count());
   }
-  return 0; // Return 0 if not draining or drained
+  
+  return result;
 }
 
 void DrainManager::update_status(RelayStatus& status) const
@@ -106,8 +116,7 @@ void DrainManager::update_status(RelayStatus& status) const
   drain_status.state(state_);
   drain_status.remaining_participants(remaining_participants_);
   drain_status.total_participants(total_participants_);
-  drain_status.start_time(get_drain_start_time());
-
+  drain_status.start_time(get_drain_start_time()); // Now returns DDS::Time_t
   drain_status.rate_per_second(drain_rate_per_second_);
   status.drain_status(drain_status);
 }
