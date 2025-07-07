@@ -363,8 +363,10 @@ public:
   void set_drain_check_interval(const OpenDDS::DCPS::TimeDuration& value) { drain_check_interval_ = value; }
 
   size_t handler_threads() const { return handler_threads_; }
+  void handler_threads(size_t value) { handler_threads_ = value; }
 
   bool synchronous_output() const { return synchronous_output_; }
+  void synchronous_output(bool value) { synchronous_output_ = value; }
 
 private:
   std::string relay_id_;

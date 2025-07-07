@@ -27,7 +27,6 @@ private:
   const Config& config_;
   void report_relay_status();
 
-  const Config& config_;
   const GuidAddrSet& guid_addr_set_;
   RelayStatusDataWriter_var status_writer_;
   ACE_Reactor* reactor_;

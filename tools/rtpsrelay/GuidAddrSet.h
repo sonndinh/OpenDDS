@@ -314,6 +314,7 @@ private:
 
   void maintain_admission_queue(const OpenDDS::DCPS::MonotonicTimePoint& now);
 
+public:
   bool admitting() const
   {
     // Use the correct method names from the Config class
