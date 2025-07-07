@@ -35,18 +35,37 @@ void RelayControlHandler::process_command(const std::string& command, ParameterV
 {
   // Handle drain control commands
   if (command == CMD_SET_DRAIN_STATE) {
-    if (parameter <= 3) { // Updated to <= 3 to include the new state
-      ACE_DEBUG((LM_INFO, ACE_TEXT("(%P|%t) INFO: RelayControlHandler::process_command: ")
-                ACE_TEXT("Setting drain state to %d\n"), parameter));
-      drain_manager_.set_state(static_cast<DrainState>(parameter));
+    // Check if parameter is a long (case 0) which is what we need for DrainState
+    if (parameter._d() == 0) { // Check discriminator
+      unsigned long stateValue = parameter.longValue();
+      
+      if (stateValue <= 3) { // Now comparing integers
+        ACE_DEBUG((LM_INFO, ACE_TEXT("(%P|%t) INFO: RelayControlHandler::process_command: ")
+                  ACE_TEXT("Setting drain state to %d\n"), stateValue));
+        
+        // Convert to DrainState using the integer value
+        drain_manager_.set_state(static_cast<DrainState>(stateValue));
+      } else {
+        ACE_ERROR((LM_ERROR, ACE_TEXT("(%P|%t) ERROR: RelayControlHandler::process_command: ")
+                  ACE_TEXT("Invalid drain state value: %d\n"), stateValue));
+      }
     } else {
       ACE_ERROR((LM_ERROR, ACE_TEXT("(%P|%t) ERROR: RelayControlHandler::process_command: ")
-                ACE_TEXT("Invalid drain state value: %d\n"), parameter));
+                ACE_TEXT("Expected numeric parameter for setting drain state\n")));
     }
   } else if (command == CMD_SET_DRAIN_RATE) {
-    ACE_DEBUG((LM_INFO, ACE_TEXT("(%P|%t) INFO: RelayControlHandler::process_command: ")
-              ACE_TEXT("Setting drain rate to %d participants/sec\n"), parameter));
-    drain_manager_.set_drain_rate(static_cast<unsigned int>(parameter));
+    // Check if parameter is a long (case 0) which is what we need for drain_rate
+    if (parameter._d() == 0) { // Check discriminator
+      unsigned long rateValue = parameter.longValue();
+      
+      ACE_DEBUG((LM_INFO, ACE_TEXT("(%P|%t) INFO: RelayControlHandler::process_command: ")
+                ACE_TEXT("Setting drain rate to %d participants/sec\n"), rateValue));
+      
+      drain_manager_.set_drain_rate(rateValue); // Pass the numeric value
+    } else {
+      ACE_ERROR((LM_ERROR, ACE_TEXT("(%P|%t) ERROR: RelayControlHandler::process_command: ")
+                ACE_TEXT("Expected numeric parameter for setting drain rate\n")));
+    }
   } else {
     ACE_DEBUG((LM_DEBUG, ACE_TEXT("(%P|%t) DEBUG: RelayControlHandler::process_command: ")
               ACE_TEXT("Unknown command: %C\n"), command.c_str()));
