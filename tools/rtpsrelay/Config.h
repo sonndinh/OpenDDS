@@ -364,6 +364,8 @@ public:
 
   size_t handler_threads() const { return handler_threads_; }
 
+  bool synchronous_output() const { return synchronous_output_; }
+
 private:
   std::string relay_id_;
   OpenDDS::DCPS::GUID_t application_participant_guid_;
