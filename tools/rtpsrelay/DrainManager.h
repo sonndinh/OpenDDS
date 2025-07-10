@@ -2,12 +2,15 @@
 #define RTPSRELAY_DRAIN_MANAGER_H
 
 #include "Config.h"
+#include <dds/rtpsrelaylib/RelayC.h>
 #include <dds/DCPS/TimeDuration.h>
 #include <dds/DCPS/GuidUtils.h>
+#include <dds/DdsDcpsInfrastructureC.h>
 
 #include <chrono>
 #include <set>
 #include <string>
+#include <vector>
 
 namespace RtpsRelay {
 
