@@ -226,7 +226,7 @@ module RtpsRelay {
 
   // Command name constants
   const string CMD_SET_DRAIN_STATE = "set_drain_state";
-  const char* const CMD_SET_DRAIN_INTERVAL = "set_drain_interval";
+  const string CMD_SET_DRAIN_INTERVAL = "set_drain_interval";
 
  // Define parameter value union
   union ParameterValue switch (unsigned short) {
