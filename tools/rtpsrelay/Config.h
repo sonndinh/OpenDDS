@@ -38,7 +38,7 @@ public:
     , admission_max_participants_high_water_(0)
     , admission_max_participants_low_water_(0)
     , drain_feature_enabled_(false)
-    , drain_rate_per_second_(2)
+    , drain_interval_ms_(500)
     , drain_check_interval_(OpenDDS::DCPS::TimeDuration(0, 1000000)) // 1 second
   {}
 

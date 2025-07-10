@@ -277,8 +277,8 @@ int run(int argc, ACE_TCHAR* argv[])
     } else if ((arg = args.get_the_parameter("-EnableDrainFeature"))) {
       config.set_drain_feature_enabled(ACE_OS::atoi(arg));
       args.consume_arg();
-    } else if ((arg = args.get_the_parameter("-DrainRatePerSecond"))) {
-      config.set_drain_rate_per_second(ACE_OS::atoi(arg));
+    } else if ((arg = args.get_the_parameter("-DrainIntervalMs"))) {
+      config.set_drain_interval_ms(ACE_OS::atoi(arg));
       args.consume_arg();
     } else if ((arg = args.get_the_parameter("-DrainCheckInterval"))) {
       config.set_drain_check_interval(OpenDDS::DCPS::TimeDuration(ACE_OS::atoi(arg)));

@@ -37,14 +37,6 @@ void DrainManager::set_state(DrainState state)
   state_ = state;
 }
 
-// REMOVE this method entirely
-/*
-void DrainManager::set_drain_rate(unsigned rate)
-{
-  drain_rate_per_second_ = rate;
-}
-*/
-
 void DrainManager::set_drain_interval(unsigned interval_ms)
 {
   drain_interval_ms_ = interval_ms;
