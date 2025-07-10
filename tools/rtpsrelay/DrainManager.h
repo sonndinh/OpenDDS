@@ -25,8 +25,8 @@ public:
   DrainState get_state() const { return state_; }
   
   // Drain rate control
-  void set_drain_rate(unsigned rate);
-  unsigned get_drain_rate() const { return drain_rate_per_second_; }
+  void set_drain_interval(unsigned interval_ms);
+  unsigned get_drain_interval_ms() const { return drain_interval_ms_; }
   
   // Check if a participant has been removed during draining
   bool is_participant_removed(const OpenDDS::DCPS::GUID_t& guid) const;
@@ -44,12 +44,16 @@ public:
 private:
   std::string relay_id_;
   DrainState state_{DrainState::DS_ACTIVE};
-  unsigned drain_rate_per_second_;
+  unsigned drain_interval_ms_;  // milliseconds between participant removals
   OpenDDS::DCPS::TimeDuration drain_check_interval_;
   std::chrono::steady_clock::time_point drain_start_time_;
   unsigned total_participants_{0};
   unsigned remaining_participants_{0};
   std::set<OpenDDS::DCPS::GUID_t> removed_participants_;
+  
+  std::chrono::milliseconds get_drain_interval() const {
+    return std::chrono::milliseconds(drain_interval_ms_);
+  }
 };
 
 } // namespace RtpsRelay

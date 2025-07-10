@@ -51,7 +51,7 @@ module RtpsRelay {
     unsigned long remaining_participants;
     unsigned long total_participants;
     DDS::Time_t start_time;
-    unsigned long rate_per_second;
+    unsigned long drain_interval_ms;
   };
 
   typedef sequence<string> StringSequence;
@@ -226,7 +226,7 @@ module RtpsRelay {
 
   // Command name constants
   const string CMD_SET_DRAIN_STATE = "set_drain_state";
-  const string CMD_SET_DRAIN_RATE = "set_drain_rate";
+  const char* const CMD_SET_DRAIN_INTERVAL = "set_drain_interval";
 
  // Define parameter value union
   union ParameterValue switch (unsigned short) {

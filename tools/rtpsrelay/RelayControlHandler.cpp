@@ -53,18 +53,18 @@ void RelayControlHandler::process_command(const std::string& command, ParameterV
       ACE_ERROR((LM_ERROR, ACE_TEXT("(%P|%t) ERROR: RelayControlHandler::process_command: ")
                 ACE_TEXT("Expected numeric parameter for setting drain state\n")));
     }
-  } else if (command == CMD_SET_DRAIN_RATE) {
-    // Check if parameter is a long (case 0) which is what we need for drain_rate
+  } else if (command == CMD_SET_DRAIN_INTERVAL) {
+    // Check if parameter is a long (case 0) which is what we need for interval_ms
     if (parameter._d() == 0) { // Check discriminator
-      unsigned long rateValue = parameter.longValue();
+      unsigned long intervalValue = parameter.longValue();
       
       ACE_DEBUG((LM_INFO, ACE_TEXT("(%P|%t) INFO: RelayControlHandler::process_command: ")
-                ACE_TEXT("Setting drain rate to %d participants/sec\n"), rateValue));
+                ACE_TEXT("Setting drain interval to %d ms\n"), intervalValue));
       
-      drain_manager_.set_drain_rate(rateValue); // Pass the numeric value
+      drain_manager_.set_drain_interval(intervalValue);
     } else {
       ACE_ERROR((LM_ERROR, ACE_TEXT("(%P|%t) ERROR: RelayControlHandler::process_command: ")
-                ACE_TEXT("Expected numeric parameter for setting drain rate\n")));
+                ACE_TEXT("Expected numeric parameter for setting drain interval\n")));
     }
   } else {
     ACE_DEBUG((LM_DEBUG, ACE_TEXT("(%P|%t) DEBUG: RelayControlHandler::process_command: ")

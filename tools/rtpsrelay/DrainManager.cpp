@@ -11,6 +11,7 @@ DrainManager::DrainManager(const Config& config, const std::string& relay_id)
   , state_(DrainState::DS_ACTIVE)
   , drain_rate_per_second_(config.drain_rate_per_second())
   , drain_check_interval_(config.drain_check_interval())
+  , drain_interval_ms_(0) // Initialize drain_interval_ms_
 {
   // Initialization code
 }
@@ -40,6 +41,14 @@ void DrainManager::set_state(DrainState state)
 void DrainManager::set_drain_rate(unsigned rate)
 {
   drain_rate_per_second_ = rate;
+}
+
+void DrainManager::set_drain_interval(unsigned interval_ms)
+{
+  drain_interval_ms_ = interval_ms;
+  
+  ACE_DEBUG((LM_INFO, ACE_TEXT("(%P|%t) INFO: DrainManager::set_drain_interval: ")
+            ACE_TEXT("Setting drain interval to %d ms\n"), interval_ms));
 }
 
 bool DrainManager::is_participant_removed(const OpenDDS::DCPS::GUID_t& guid) const
@@ -117,7 +126,7 @@ void DrainManager::update_status(RelayStatus& status) const
   drain_status.remaining_participants(remaining_participants_);
   drain_status.total_participants(total_participants_);
   drain_status.start_time(get_drain_start_time()); // Now returns DDS::Time_t
-  drain_status.rate_per_second(drain_rate_per_second_);
+  drain_status.drain_interval_ms(drain_interval_ms_); // Updated field name
   status.drain_status(drain_status);
 }
 
