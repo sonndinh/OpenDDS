@@ -2,15 +2,12 @@
 #define RTPSRELAY_DRAIN_MANAGER_H
 
 #include "Config.h"
-#include <dds/rtpsrelaylib/RelayC.h>
 #include <dds/DCPS/TimeDuration.h>
 #include <dds/DCPS/GuidUtils.h>
-#include <dds/DdsDcpsInfrastructureC.h>
 
 #include <chrono>
 #include <set>
 #include <string>
-#include <vector>
 
 namespace RtpsRelay {
 
@@ -18,13 +15,13 @@ class GuidAddrSet;
 
 class DrainManager {
 public:
-  explicit DrainManager(const Config& config, const std::string& relay_id);
+  DrainManager(const Config& config, const std::string& relay_id);
   
-  // State management
   void set_state(DrainState state);
   DrainState get_state() const { return state_; }
+
   
-  // Drain rate control
+  // Use this method instead
   void set_drain_interval(unsigned interval_ms);
   unsigned get_drain_interval_ms() const { return drain_interval_ms_; }
   
@@ -37,25 +34,22 @@ public:
   // Get values for status reporting
   unsigned get_total_participants() const { return total_participants_; }
   DDS::Time_t get_drain_start_time() const;
-  
-  // Update the relay status with drain information
   void update_status(RelayStatus& status) const;
   
 private:
   std::string relay_id_;
   DrainState state_{DrainState::DS_ACTIVE};
-  unsigned drain_interval_ms_;  // milliseconds between participant removals
+  
+  // Use this member instead
+  unsigned drain_interval_ms_{0};  // milliseconds between participant removals
+  
   OpenDDS::DCPS::TimeDuration drain_check_interval_;
   std::chrono::steady_clock::time_point drain_start_time_;
   unsigned total_participants_{0};
   unsigned remaining_participants_{0};
   std::set<OpenDDS::DCPS::GUID_t> removed_participants_;
-  
-  std::chrono::milliseconds get_drain_interval() const {
-    return std::chrono::milliseconds(drain_interval_ms_);
-  }
 };
 
-} // namespace RtpsRelay
+}
 
-#endif // RTPSRELAY_DRAIN_MANAGER_H
+#endif

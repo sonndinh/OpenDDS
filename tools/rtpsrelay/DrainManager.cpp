@@ -9,9 +9,8 @@ namespace RtpsRelay {
 DrainManager::DrainManager(const Config& config, const std::string& relay_id)
   : relay_id_(relay_id)
   , state_(DrainState::DS_ACTIVE)
-  , drain_rate_per_second_(config.drain_rate_per_second())
+  , drain_interval_ms_(config.drain_interval_ms())
   , drain_check_interval_(config.drain_check_interval())
-  , drain_interval_ms_(0) // Initialize drain_interval_ms_
 {
   // Initialization code
 }
@@ -38,10 +37,13 @@ void DrainManager::set_state(DrainState state)
   state_ = state;
 }
 
+// REMOVE this method entirely
+/*
 void DrainManager::set_drain_rate(unsigned rate)
 {
   drain_rate_per_second_ = rate;
 }
+*/
 
 void DrainManager::set_drain_interval(unsigned interval_ms)
 {
@@ -69,7 +71,17 @@ void DrainManager::process_drain_cycle(GuidAddrSet& guid_addr_set)
   }
   
   // Calculate how many participants to remove in this cycle
-  unsigned to_remove = drain_rate_per_second_;
+  // CHANGE this calculation
+  unsigned to_remove = 1; // Default to 1 participant per cycle
+  
+  // If we have a valid interval, calculate rate: participants per second = 1000 / interval_ms
+  if (drain_interval_ms_ > 0) {
+    to_remove = static_cast<unsigned>(1000 / drain_interval_ms_);
+    if (to_remove == 0) {
+      to_remove = 1; // Minimum of 1 participant
+    }
+  }
+  
   if (to_remove > remaining_participants_) {
     to_remove = remaining_participants_;
   }
@@ -125,8 +137,8 @@ void DrainManager::update_status(RelayStatus& status) const
   drain_status.state(state_);
   drain_status.remaining_participants(remaining_participants_);
   drain_status.total_participants(total_participants_);
-  drain_status.start_time(get_drain_start_time()); // Now returns DDS::Time_t
-  drain_status.drain_interval_ms(drain_interval_ms_); // Updated field name
+  drain_status.start_time(get_drain_start_time()); 
+  drain_status.drain_interval_ms(drain_interval_ms_);
   status.drain_status(drain_status);
 }
 

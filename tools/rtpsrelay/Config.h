@@ -356,8 +356,8 @@ public:
   bool drain_feature_enabled() const { return drain_feature_enabled_; }
   void set_drain_feature_enabled(bool value) { drain_feature_enabled_ = value; }
   
-  unsigned drain_rate_per_second() const { return drain_rate_per_second_; }
-  void set_drain_rate_per_second(unsigned value) { drain_rate_per_second_ = value; }
+  unsigned drain_interval_ms() const { return drain_interval_ms_; }
+  void set_drain_interval_ms(unsigned value) { drain_interval_ms_ = value; }
   
   const OpenDDS::DCPS::TimeDuration& drain_check_interval() const { return drain_check_interval_; }
   void set_drain_check_interval(const OpenDDS::DCPS::TimeDuration& value) { drain_check_interval_ = value; }
@@ -403,7 +403,7 @@ private:
   size_t handler_threads_;
   bool synchronous_output_;
   bool drain_feature_enabled_;
-  unsigned drain_rate_per_second_;
+  unsigned drain_interval_ms_;
   OpenDDS::DCPS::TimeDuration drain_check_interval_;
 };
 
