@@ -72,7 +72,6 @@ add_library(OpenDDS_Dcps
   DCPS/Qos_Helper.cpp
   DCPS/QueryConditionImpl.cpp
   DCPS/RawDataSample.cpp
-  DCPS/ReactorInterceptor.cpp
   DCPS/ReactorTask.cpp
   DCPS/ReadConditionImpl.cpp
   DCPS/ReceivedDataElementList.cpp
@@ -103,7 +102,6 @@ add_library(OpenDDS_Dcps
   DCPS/ThreadStatusManager.cpp
   DCPS/TimeDuration.cpp
   DCPS/Time_Helper.cpp
-  DCPS/Timers.cpp
   DCPS/TopicDescriptionImpl.cpp
   DCPS/TopicImpl.cpp
   DCPS/Transient_Kludge.cpp
@@ -325,7 +323,6 @@ target_sources(OpenDDS_Dcps
     DCPS/RcEventHandler.h
     DCPS/RcHandle_T.h
     DCPS/RcObject.h
-    DCPS/ReactorInterceptor.h
     DCPS/ReactorTask.h
     DCPS/ReactorTask.inl
     DCPS/ReactorTask_rch.h
