@@ -4,7 +4,6 @@
 #include "ParticipantStatisticsReporter.h"
 #include "RelayStatisticsReporter.h"
 #include "RelayThreadMonitor.h"
-#include "DrainManager.h" // Add this include
 
 #include <dds/rtpsrelaylib/Utility.h>
 
@@ -31,6 +30,7 @@ using IpToPorts = std::unordered_map<ACE_INET_Addr, PortSet, InetAddrHash>;
 
 struct AddrSetStats {
   bool allow_rtps;
+  bool allow_stun_responses;
   bool seen_spdp_message;
   IpToPorts ip_to_ports;
   ParticipantStatisticsReporter spdp_stats_reporter;
@@ -50,6 +50,7 @@ struct AddrSetStats {
                size_t& a_total_ips,
                size_t& a_total_ports)
     : allow_rtps(false)
+    , allow_stun_responses(true)
     , seen_spdp_message(false)
     , spdp_stats_reporter(rtps_guid_to_relay_guid(guid), "SPDP")
     , sedp_stats_reporter(rtps_guid_to_relay_guid(guid), "SEDP")
@@ -154,7 +155,6 @@ struct RemoteHash {
 class RelayHandler;
 class RelayParticipantStatusReporter;
 
-class DrainManager;
 class GuidAddrSet;
 using GuidAddrSet_rch = OpenDDS::DCPS::RcHandle<GuidAddrSet>;
 
@@ -166,18 +166,18 @@ public:
               const OpenDDS::DCPS::ReactorTask_rch& reactor_task,
               OpenDDS::RTPS::RtpsDiscovery_rch rtps_discovery,
               RelayParticipantStatusReporter& relay_participant_status_reporter,
-              RelayStatisticsReporter& relay_stats_reporter,
-              RelayThreadMonitor& relay_thread_monitor)
+              RelayStatisticsReporter& relay_stats_reporter)
     : config_(config)
     , reactor_task_(reactor_task)
     , rtps_discovery_(rtps_discovery)
     , relay_participant_status_reporter_(relay_participant_status_reporter)
     , relay_stats_reporter_(relay_stats_reporter)
-    , relay_thread_monitor_(relay_thread_monitor)
     , total_ips_(0)
     , total_ports_(0)
     , participant_admission_limit_reached_(false)
-    , last_admit_(true)
+    , drain_state_(DrainState::DS_NORMAL)
+    , mark_budget_(0)
+    , mark_count_(0)
   {}
 
   ~GuidAddrSet();
@@ -219,9 +219,11 @@ public:
                     const OpenDDS::DCPS::GUID_t& src_guid,
                     MessageType msg_type,
                     const size_t& msg_len,
+                    bool from_application_participant,
+                    bool* allow_stun_responses,
                     const RelayHandler& handler)
     {
-      return gas_.record_activity(remote_address, now, src_guid, msg_type, msg_len, handler);
+      return gas_.record_activity(remote_address, now, src_guid, msg_type, msg_len, from_application_participant, allow_stun_responses, handler);
     }
 
     ParticipantStatisticsReporter&
@@ -279,6 +281,16 @@ public:
       return gas_.admitting();
     }
 
+    void drain_state(DrainState ds)
+    {
+      gas_.drain_state(ds);
+    }
+
+    void populate_relay_status(RelayStatus& relay_status)
+    {
+      gas_.populate_relay_status(relay_status);
+    }
+
   private:
     GuidAddrSet& gas_;
 
@@ -287,17 +299,6 @@ public:
     Proxy& operator=(const Proxy&) = delete;
     Proxy& operator=(Proxy&&) = delete;
   };
-
-public:
-  // Remove up to 'count' participants and add their GUIDs to 'removed'
-  void remove_next_batch(unsigned count, std::vector<OpenDDS::DCPS::GUID_t>& removed);
-
-  // Get the number of participants
-  size_t get_participant_count() const;
-
-  bool is_marked_for_drain(const OpenDDS::DCPS::GUID_t& guid) const;
-
-  void set_drain_manager(DrainManager* manager);
 
 private:
   CreatedAddrSetStats find_or_create(const OpenDDS::DCPS::GUID_t& guid,
@@ -309,6 +310,8 @@ private:
                   const OpenDDS::DCPS::GUID_t& src_guid,
                   MessageType msg_type,
                   const size_t& msg_len,
+                  bool from_application_participant,
+                  bool* allow_stun_responses,
                   const RelayHandler& handler);
 
   void schedule_rejected_address_expiration();
@@ -320,7 +323,6 @@ private:
 
   void maintain_admission_queue(const OpenDDS::DCPS::MonotonicTimePoint& now);
 
-public:
   bool admitting() const
   {
     // Use the correct method names from the Config class
@@ -334,10 +336,8 @@ public:
     }
 
     // Add drain state check - don't admit if in PAUSED, DRAINING or DRAINED states
-    if (drain_manager_ &&
-        (drain_manager_->get_state() == DrainState::DS_PAUSED ||
-         drain_manager_->get_state() == DrainState::DS_DRAINING ||
-         drain_manager_->get_state() == DrainState::DS_DRAINED)) {
+    if (drain_state_ == DrainState::DS_PAUSED ||
+        drain_state_ == DrainState::DS_DRAINING) {
       return false;
     }
 
@@ -369,6 +369,11 @@ public:
 
   void check_participants_limit();
 
+  void drain_state(DrainState ds);
+  void process_drain_state(const OpenDDS::DCPS::MonotonicTimePoint& now);
+
+  void populate_relay_status(RelayStatus& relay_status);
+
   struct AdmissionControlInfo {
     AdmissionControlInfo(const OpenDDS::DCPS::GuidPrefix_t& prefix, const OpenDDS::DCPS::MonotonicTimePoint& admitted)
      : admitted_(admitted)
@@ -384,7 +389,6 @@ public:
   OpenDDS::RTPS::RtpsDiscovery_rch rtps_discovery_;
   RelayParticipantStatusReporter& relay_participant_status_reporter_;
   RelayStatisticsReporter& relay_stats_reporter_;
-  RelayThreadMonitor& relay_thread_monitor_;
   GuidAddrSetMap guid_addr_set_map_;
   size_t total_ips_;
   size_t total_ports_;
@@ -409,19 +413,17 @@ public:
 
   mutable ACE_Thread_Mutex mutex_;
   bool participant_admission_limit_reached_;
-  DrainManager* drain_manager_{nullptr};
-
-  // New methods for draining
-  mutable bool last_admit_;
-
-  // Set of participants marked for draining
-  std::set<OpenDDS::DCPS::GUID_t> drain_marked_participants_;
 
   using GuidAddrSetSporadicTask = OpenDDS::DCPS::PmfSporadicTask<GuidAddrSet>;
   using GuidAddrSetSporadicTask_rch = OpenDDS::DCPS::RcHandle<GuidAddrSetSporadicTask>;
   GuidAddrSetSporadicTask_rch rejected_address_expiration_task_;
   GuidAddrSetSporadicTask_rch deactivation_task_;
   GuidAddrSetSporadicTask_rch expiration_task_;
+
+  DrainState drain_state_;
+  size_t mark_budget_;
+  size_t mark_count_;
+  GuidAddrSetSporadicTask_rch drain_task_;
 };
 
 }

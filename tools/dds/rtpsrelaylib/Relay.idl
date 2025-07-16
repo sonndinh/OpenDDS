@@ -39,19 +39,9 @@ module RtpsRelay {
 
    // Drain states definition
   enum DrainState {
-    DS_ACTIVE,    // Normal operation, admitting new clients
+    DS_NORMAL,    // Normal operation, admitting new clients
     DS_PAUSED,    // Not admitting new clients, but retaining existing ones
-    DS_DRAINING,  // Not admitting new clients, gradually removing existing clients
-    DS_DRAINED    // All clients removed, ready for termination
-  };
-
-  // Group of drain related status fields
-  struct DrainStatus {
-    DrainState state;
-    unsigned long remaining_participants;
-    unsigned long total_participants;
-    DDS::Time_t start_time;
-    unsigned long drain_interval_ms;
+    DS_DRAINING   // Not admitting new clients, gradually removing existing clients
   };
 
   typedef sequence<string> StringSequence;
@@ -78,7 +68,12 @@ module RtpsRelay {
   struct RelayStatus {
     @key string relay_id;
     boolean admitting;
-    DrainStatus drain_status;
+    DrainState drain_state;
+    unsigned long local_active_participants;
+    unsigned long marked_participants;
+    // TODO: Do we need these?
+    //DDS::Time_t start_time;
+    //unsigned long drain_interval_ms;
   };
 
   const string RELAY_PARTICIPANT_STATUS_TOPIC_NAME = "Relay Participant Status";

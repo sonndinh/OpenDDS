@@ -114,6 +114,9 @@ GuidAddrSet::~GuidAddrSet()
   if (expiration_task_) {
     expiration_task_->cancel();
   }
+  if (drain_task_) {
+    drain_task_->cancel();
+  }
 }
 
 GuidAddrSet::CreatedAddrSetStats GuidAddrSet::find_or_create(const OpenDDS::DCPS::GUID_t& guid,
@@ -136,6 +139,8 @@ GuidAddrSet::record_activity(const AddrPort& remote_address,
                              const OpenDDS::DCPS::GUID_t& src_guid,
                              MessageType msg_type,
                              const size_t& msg_len,
+                             bool from_application_participant,
+                             bool* allow_stun_responses,
                              const RelayHandler& handler)
 {
   const auto expiration = now + config_.lifespan();
@@ -219,6 +224,28 @@ GuidAddrSet::record_activity(const AddrPort& remote_address,
   ParticipantStatisticsReporter& stats_reporter =
     *addr_set_stats.select_stats_reporter(remote_address.port);
   stats_reporter.input_message(msg_len, msg_type);
+
+  switch (drain_state_) {
+  case DrainState::DS_NORMAL:
+    if (!addr_set_stats.allow_stun_responses) {
+      addr_set_stats.allow_stun_responses = true;
+      --mark_count_;
+    }
+    break;
+  case DrainState::DS_PAUSED:
+    break;
+  case DrainState::DS_DRAINING:
+    if (!from_application_participant && addr_set_stats.allow_stun_responses && mark_budget_) {
+      addr_set_stats.allow_stun_responses = false;
+      --mark_budget_;
+      ++mark_count_;
+    }
+    break;
+  }
+
+  if (allow_stun_responses) {
+    *allow_stun_responses = addr_set_stats.allow_stun_responses;
+  }
 
   return stats_reporter;
 }
@@ -389,16 +416,6 @@ bool GuidAddrSet::ignore_rtps(bool from_application_participant,
                               const OpenDDS::DCPS::MonotonicTimePoint& now,
                               bool& admitted)
 {
-  // First check if this participant is marked for draining
-  if (is_marked_for_drain(guid)) {
-    if (config_.log_activity()) {
-      ACE_DEBUG((LM_INFO, "(%P|%t) INFO: GuidAddrSet::ignore_rtps %C "
-                 "ignoring traffic for participant marked for draining\n",
-                 guid_to_string(guid).c_str()));
-    }
-    return true; // Ignore traffic from participants marked for draining
-  }
-
   const auto pos = guid_addr_set_map_.find(guid);
   if (pos == guid_addr_set_map_.end()) {
     return true;
@@ -471,6 +488,10 @@ void GuidAddrSet::remove(const OpenDDS::DCPS::GUID_t& guid,
     }
   }
 
+  if (!addr_stats.allow_stun_responses) {
+    --mark_count_;
+  }
+
   guid_addr_set_map_.erase(it);
   relay_stats_reporter_.local_active_participants(guid_addr_set_map_.size(), now);
   check_participants_limit();
@@ -524,54 +545,46 @@ void GuidAddrSet::check_participants_limit()
   }
 }
 
-void GuidAddrSet::set_drain_manager(DrainManager* manager)
+void GuidAddrSet::drain_state(DrainState ds)
 {
-  drain_manager_ = manager;
-}
-
-// Implementation of remove_next_batch
-void GuidAddrSet::remove_next_batch(unsigned count, std::vector<OpenDDS::DCPS::GUID_t>& removed)
-{
-  removed.clear();
-  
-  // Mark participants for removal rather than removing them immediately
-  unsigned marked_count = 0;
-  
-  for (auto it = guid_addr_set_map_.begin(); 
-       it != guid_addr_set_map_.end() && marked_count < count; ++it) {
-    const OpenDDS::DCPS::GUID_t& guid = it->first;
-    
-    // Skip if already marked for removal
-    if (drain_marked_participants_.find(guid) != drain_marked_participants_.end()) {
-      continue;
-    }
-    
-    // Mark this participant for removal
-    drain_marked_participants_.insert(guid);
-    removed.push_back(guid);
-    marked_count++;
-    
-    if (config_.log_activity()) {
-      ACE_DEBUG((LM_INFO, "(%P|%t) INFO: GuidAddrSet::remove_next_batch "
-                 "%C marked for draining\n",
-                 guid_to_string(guid).c_str()));
-    }
+  if (!drain_task_) {
+    drain_task_ = OpenDDS::DCPS::make_rch<GuidAddrSetSporadicTask>(TheServiceParticipant->time_source(),
+                                                                   reactor_task_,
+                                                                   rchandle_from(this),
+                                                                   &GuidAddrSet::process_drain_state);
   }
-  
-  // Let the regular process_expirations handle the actual cleanup
-  // This provides a more gradual approach to draining
+
+  if (drain_state_ != ds) {
+    switch (ds) {
+    case DrainState::DS_NORMAL:
+    case DrainState::DS_PAUSED:
+      mark_budget_ = 0;
+      drain_task_->cancel();
+      break;
+    case DrainState::DS_DRAINING:
+      // TODO: Get intertval from config.
+      drain_task_->schedule(OpenDDS::DCPS::TimeDuration(0, 500));
+      break;
+    }
+
+    drain_state_ = ds;
+  }
 }
 
-// Add this to check if a participant is marked for draining
-// This would be called in your message handling code
-bool GuidAddrSet::is_marked_for_drain(const OpenDDS::DCPS::GUID_t& guid) const
+void GuidAddrSet::process_drain_state(const OpenDDS::DCPS::MonotonicTimePoint&)
 {
-  return drain_marked_participants_.find(guid) != drain_marked_participants_.end();
+  ACE_GUARD(ACE_Thread_Mutex, g, mutex_);
+  ++mark_budget_;
+  // TODO: Get intertval from config.
+  drain_task_->schedule(OpenDDS::DCPS::TimeDuration(0, 500));
 }
 
-size_t GuidAddrSet::get_participant_count() const
+void GuidAddrSet::populate_relay_status(RelayStatus& relay_status)
 {
-  ACE_GUARD_RETURN(ACE_Thread_Mutex, guard, mutex_, 0);
-  return guid_addr_set_map_.size();
+  relay_status.admitting(admitting());
+  relay_status.drain_state(drain_state_);
+  relay_status.local_active_participants(guid_addr_set_map_.size());
+  relay_status.marked_participants(mark_count_);
 }
+
 } // namespace RtpsRelay

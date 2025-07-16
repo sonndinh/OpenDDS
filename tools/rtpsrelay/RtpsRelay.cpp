@@ -19,8 +19,6 @@
 #include "RelayThreadMonitor.h"
 #include "StatisticsWriterListener.h"
 #include "SubscriptionListener.h"
-#include "DrainManager.h"
-#include "DrainTimer.h"
 #include "RelayControlHandler.h"
 
 #include <dds/DCPS/BuiltInTopicUtils.h>
@@ -730,7 +728,7 @@ int run(int argc, ACE_TCHAR* argv[])
   reactor_task->init_reactor_task(&TheServiceParticipant->get_thread_status_manager(), "RtpsRelay Main", reactor);
 
   const auto guid_addr_set = OpenDDS::DCPS::make_rch<GuidAddrSet>(config, reactor_task, rtps_discovery,
-    OpenDDS::DCPS::ref(relay_participant_status_reporter), OpenDDS::DCPS::ref(relay_statistics_reporter), OpenDDS::DCPS::ref(*relay_thread_monitor));
+                                                                  OpenDDS::DCPS::ref(relay_participant_status_reporter), OpenDDS::DCPS::ref(relay_statistics_reporter));
   GuidPartitionTable guid_partition_table(config, spdp_horizontal_addr, relay_partitions_writer, relay_statistics_reporter);
   RelayPartitionTable relay_partition_table(relay_statistics_reporter);
   relay_statistics_reporter.report();
@@ -930,32 +928,6 @@ int run(int argc, ACE_TCHAR* argv[])
     return EXIT_FAILURE;
   }
 
-  // Create drain manager using Config parameters directly
-  ACE_DEBUG((LM_INFO, "(%P|%t) INFO: Creating DrainManager...\n"));
-  DrainManager drain_manager(config, config.relay_id());
-  ACE_DEBUG((LM_INFO, "(%P|%t) INFO: DrainManager created successfully\n"));
-
-  try {
-    ACE_DEBUG((LM_INFO, "(%P|%t) INFO: Creating DrainTimer...\n"));
-    DrainTimer drain_timer(drain_manager, guid_addr_set, config.drain_check_interval());
-    ACE_DEBUG((LM_INFO, "(%P|%t) INFO: DrainTimer created successfully\n"));
-
-    if (config.drain_feature_enabled()) {
-      ACE_DEBUG((LM_INFO, "(%P|%t) INFO: Starting DrainTimer...\n"));
-      drain_timer.start();
-      ACE_DEBUG((LM_INFO, "(%P|%t) INFO: DrainTimer started successfully\n"));
-    }
-
-  } catch (const std::exception& e) {
-    ACE_ERROR((LM_ERROR, "(%P|%t) ERROR: Exception while initializing drain components: %C\n", e.what()));
-    // Continue without drain feature
-    config.set_drain_feature_enabled(false);
-  } catch (...) {
-    ACE_ERROR((LM_ERROR, "(%P|%t) ERROR: Unknown exception while initializing drain components\n"));
-    // Continue without drain feature
-    config.set_drain_feature_enabled(false);
-  }
-
   // Register RelayControl topic for drain control commands
   RelayControlTypeSupport_var relay_control_ts = new RelayControlTypeSupportImpl;
   if (relay_control_ts->register_type(relay_participant, "") != DDS::RETCODE_OK) {
@@ -980,7 +952,7 @@ int run(int argc, ACE_TCHAR* argv[])
   relay_subscriber->get_default_datareader_qos(relay_control_qos);
   relay_control_qos.reliability.kind = DDS::RELIABLE_RELIABILITY_QOS;
 
-  RelayControlHandler* relay_control_handler = new RelayControlHandler(config.relay_id(), drain_manager);
+  RelayControlHandler* relay_control_handler = new RelayControlHandler(config.relay_id());
   DDS::DataReaderListener_var relay_control_listener(relay_control_handler);
   DDS::DataReader_var relay_control_reader = relay_subscriber->create_datareader(
     relay_control_topic,
@@ -995,7 +967,7 @@ int run(int argc, ACE_TCHAR* argv[])
 
   // Update RelayStatusReporter to include drain status information
   // Modify the existing creation of relay_status_reporter to pass drain_manager
-  RelayStatusReporter relay_status_reporter(config, *guid_addr_set, relay_status_writer, reactor, &drain_manager);
+  RelayStatusReporter relay_status_reporter(config, *guid_addr_set, relay_status_writer, reactor);
 
   RelayHttpMetaDiscovery relay_http_meta_discovery(config, meta_discovery_content_type, meta_discovery_content, *guid_addr_set);
   if (relay_http_meta_discovery.open(meta_discovery_addr, reactor) != 0) {
