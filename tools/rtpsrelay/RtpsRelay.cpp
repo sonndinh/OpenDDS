@@ -20,7 +20,6 @@
 #include "RelayThreadMonitor.h"
 #include "StatisticsWriterListener.h"
 #include "SubscriptionListener.h"
-#include "DrainConfig.h"
 #include "DrainManager.h"
 #include "DrainTimer.h"
 #include "RelayControlHandler.h"
@@ -926,15 +925,31 @@ int run(int argc, ACE_TCHAR* argv[])
     return EXIT_FAILURE;
   }
 
-  // Add these changes to integrate drain control
-
   // Create drain manager using Config parameters directly
-  DrainManager drain_manager(config, config.relay_id());
-
-  // Set up drain timer
-  DrainTimer drain_timer(drain_manager, guid_addr_set, config.drain_check_interval());
-  if (config.drain_feature_enabled()) {
-    drain_timer.start();
+  try {
+    ACE_DEBUG((LM_INFO, "(%P|%t) INFO: Creating DrainManager...\n"));
+    DrainManager drain_manager(config, config.relay_id());
+    ACE_DEBUG((LM_INFO, "(%P|%t) INFO: DrainManager created successfully\n"));
+    
+    ACE_DEBUG((LM_INFO, "(%P|%t) INFO: Creating DrainTimer...\n"));
+    DrainTimer drain_timer(drain_manager, guid_addr_set, config.drain_check_interval());
+    ACE_DEBUG((LM_INFO, "(%P|%t) INFO: DrainTimer created successfully\n"));
+    
+    if (config.drain_feature_enabled()) {
+      ACE_DEBUG((LM_INFO, "(%P|%t) INFO: Starting DrainTimer...\n"));
+      drain_timer.start();
+      ACE_DEBUG((LM_INFO, "(%P|%t) INFO: DrainTimer started successfully\n"));
+    }
+    
+    // Continue with other components...
+  } catch (const std::exception& e) {
+    ACE_ERROR((LM_ERROR, "(%P|%t) ERROR: Exception while initializing drain components: %C\n", e.what()));
+    // Continue without drain feature
+    config.set_drain_feature_enabled(false);
+  } catch (...) {
+    ACE_ERROR((LM_ERROR, "(%P|%t) ERROR: Unknown exception while initializing drain components\n"));
+    // Continue without drain feature
+    config.set_drain_feature_enabled(false);
   }
 
   // Register RelayControl topic for drain control commands
