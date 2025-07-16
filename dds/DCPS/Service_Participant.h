@@ -17,6 +17,7 @@
 #include "NetworkConfigMonitor.h"
 #include "PoolAllocator.h"
 #include "ReactorTask.h"
+#include "ReactorTask_rch.h"
 #include "Recorder.h"
 #include "Replayer.h"
 #include "Statistics.h"
@@ -225,9 +226,7 @@ public:
 
   ACE_Reactor* reactor();
 
-  ACE_thread_t reactor_owner() const;
-
-  ReactorInterceptor_rch interceptor() const;
+  ReactorTask_rch reactor_task();
 
   JobQueue_rch job_queue() const;
 

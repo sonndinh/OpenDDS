@@ -155,17 +155,21 @@ class RelayHandler;
 class RelayParticipantStatusReporter;
 
 class DrainManager;
+class GuidAddrSet;
+using GuidAddrSet_rch = OpenDDS::DCPS::RcHandle<GuidAddrSet>;
 
-class GuidAddrSet {
+class GuidAddrSet : public OpenDDS::DCPS::RcObject {
 public:
   using GuidAddrSetMap = std::unordered_map<OpenDDS::DCPS::GUID_t, AddrSetStats, GuidHash>;
 
   GuidAddrSet(const Config& config,
+              const OpenDDS::DCPS::ReactorTask_rch& reactor_task,
               OpenDDS::RTPS::RtpsDiscovery_rch rtps_discovery,
               RelayParticipantStatusReporter& relay_participant_status_reporter,
               RelayStatisticsReporter& relay_stats_reporter,
               RelayThreadMonitor& relay_thread_monitor)
     : config_(config)
+    , reactor_task_(reactor_task)
     , rtps_discovery_(rtps_discovery)
     , relay_participant_status_reporter_(relay_participant_status_reporter)
     , relay_stats_reporter_(relay_stats_reporter)
@@ -175,6 +179,8 @@ public:
     , participant_admission_limit_reached_(false)
     , last_admit_(true)
   {}
+
+  ~GuidAddrSet();
 
   using CreatedAddrSetStats = std::pair<bool, AddrSetStats&>;
 
@@ -263,11 +269,6 @@ public:
       return gas_.check_address(addr);
     }
 
-    void process_expirations(const OpenDDS::DCPS::MonotonicTimePoint& now)
-    {
-      gas_.process_expirations(now);
-    }
-
     void maintain_admission_queue(const OpenDDS::DCPS::MonotonicTimePoint& now)
     {
       gas_.maintain_admission_queue(now);
@@ -290,7 +291,7 @@ public:
 public:
   // Remove up to 'count' participants and add their GUIDs to 'removed'
   void remove_next_batch(unsigned count, std::vector<OpenDDS::DCPS::GUID_t>& removed);
-  
+
   // Get the number of participants
   size_t get_participant_count() const;
 
@@ -310,7 +311,12 @@ private:
                   const size_t& msg_len,
                   const RelayHandler& handler);
 
-  void process_expirations(const OpenDDS::DCPS::MonotonicTimePoint& now);
+  void schedule_rejected_address_expiration();
+  void process_rejected_address_expiration(const OpenDDS::DCPS::MonotonicTimePoint& now);
+  void schedule_deactivation();
+  void process_deactivation(const OpenDDS::DCPS::MonotonicTimePoint& now);
+  void schedule_expiration();
+  void process_expiration(const OpenDDS::DCPS::MonotonicTimePoint& now);
 
   void maintain_admission_queue(const OpenDDS::DCPS::MonotonicTimePoint& now);
 
@@ -318,7 +324,7 @@ public:
   bool admitting() const
   {
     // Use the correct method names from the Config class
-    if (config_.admission_max_participants_low_water() > 0 && 
+    if (config_.admission_max_participants_low_water() > 0 &&
         guid_addr_set_map_.size() >= config_.admission_max_participants_high_water()) {
       return false;
     }
@@ -328,13 +334,13 @@ public:
     }
 
     // Add drain state check - don't admit if in PAUSED, DRAINING or DRAINED states
-    if (drain_manager_ && 
-        (drain_manager_->get_state() == DrainState::DS_PAUSED || 
-         drain_manager_->get_state() == DrainState::DS_DRAINING || 
+    if (drain_manager_ &&
+        (drain_manager_->get_state() == DrainState::DS_PAUSED ||
+         drain_manager_->get_state() == DrainState::DS_DRAINING ||
          drain_manager_->get_state() == DrainState::DS_DRAINED)) {
       return false;
     }
-    
+
     return true;
   }
 
@@ -374,6 +380,7 @@ public:
   };
 
   const Config& config_;
+  OpenDDS::DCPS::ReactorTask_rch reactor_task_;
   OpenDDS::RTPS::RtpsDiscovery_rch rtps_discovery_;
   RelayParticipantStatusReporter& relay_participant_status_reporter_;
   RelayStatisticsReporter& relay_stats_reporter_;
@@ -409,6 +416,12 @@ public:
 
   // Set of participants marked for draining
   std::set<OpenDDS::DCPS::GUID_t> drain_marked_participants_;
+
+  using GuidAddrSetSporadicTask = OpenDDS::DCPS::PmfSporadicTask<GuidAddrSet>;
+  using GuidAddrSetSporadicTask_rch = OpenDDS::DCPS::RcHandle<GuidAddrSetSporadicTask>;
+  GuidAddrSetSporadicTask_rch rejected_address_expiration_task_;
+  GuidAddrSetSporadicTask_rch deactivation_task_;
+  GuidAddrSetSporadicTask_rch expiration_task_;
 };
 
 }
