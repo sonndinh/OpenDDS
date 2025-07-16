@@ -926,11 +926,11 @@ int run(int argc, ACE_TCHAR* argv[])
   }
 
   // Create drain manager using Config parameters directly
+  ACE_DEBUG((LM_INFO, "(%P|%t) INFO: Creating DrainManager...\n"));
+  DrainManager drain_manager(config, config.relay_id());
+  ACE_DEBUG((LM_INFO, "(%P|%t) INFO: DrainManager created successfully\n"));
+  
   try {
-    ACE_DEBUG((LM_INFO, "(%P|%t) INFO: Creating DrainManager...\n"));
-    DrainManager drain_manager(config, config.relay_id());
-    ACE_DEBUG((LM_INFO, "(%P|%t) INFO: DrainManager created successfully\n"));
-    
     ACE_DEBUG((LM_INFO, "(%P|%t) INFO: Creating DrainTimer...\n"));
     DrainTimer drain_timer(drain_manager, guid_addr_set, config.drain_check_interval());
     ACE_DEBUG((LM_INFO, "(%P|%t) INFO: DrainTimer created successfully\n"));
@@ -941,7 +941,6 @@ int run(int argc, ACE_TCHAR* argv[])
       ACE_DEBUG((LM_INFO, "(%P|%t) INFO: DrainTimer started successfully\n"));
     }
     
-    // Continue with other components...
   } catch (const std::exception& e) {
     ACE_ERROR((LM_ERROR, "(%P|%t) ERROR: Exception while initializing drain components: %C\n", e.what()));
     // Continue without drain feature
