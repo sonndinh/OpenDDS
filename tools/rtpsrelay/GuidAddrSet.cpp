@@ -622,4 +622,4 @@ void GuidAddrSet::ConfigReaderListener::on_data_available(InternalDataReader_rch
   }
 }
 
-} // namespace RtpsRelay
+}

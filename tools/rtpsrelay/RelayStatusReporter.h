@@ -15,14 +15,13 @@ public:
                       RelayStatusDataWriter_var writer,
                       ACE_Reactor* reactor);
 
-  int handle_timeout(const ACE_Time_Value& now, const void* act);
-  void report_relay_status();
-
 private:
+  int handle_timeout(const ACE_Time_Value& now, const void* token) override;
+
   const Config& config_;
   GuidAddrSet& guid_addr_set_;
   RelayStatusDataWriter_var writer_;
-  ACE_Reactor* reactor_;
+  RelayStatus relay_status_;
 };
 
 }

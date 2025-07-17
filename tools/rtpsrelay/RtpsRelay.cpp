@@ -722,7 +722,7 @@ int run(int argc, ACE_TCHAR* argv[])
   reactor_task->init_reactor_task(&TheServiceParticipant->get_thread_status_manager(), "RtpsRelay Main", reactor);
 
   const auto guid_addr_set = OpenDDS::DCPS::make_rch<GuidAddrSet>(config, reactor_task, rtps_discovery,
-                                                                  OpenDDS::DCPS::ref(relay_participant_status_reporter), OpenDDS::DCPS::ref(relay_statistics_reporter));
+                                                                  OpenDDS::DCPS::ref(relay_participant_status_reporter), OpenDDS::DCPS::ref(relay_statistics_reporter), OpenDDS::DCPS::ref(*relay_thread_monitor));
   GuidPartitionTable guid_partition_table(config, spdp_horizontal_addr, relay_partitions_writer, relay_statistics_reporter);
   RelayPartitionTable relay_partition_table(relay_statistics_reporter);
   relay_statistics_reporter.report();

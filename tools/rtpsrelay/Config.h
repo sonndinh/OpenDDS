@@ -30,8 +30,8 @@ class Config {
 public:
   Config()
     : application_participant_guid_(OpenDDS::DCPS::GUID_UNKNOWN)
-    , lifespan_(60)
-    , inactive_period_(60)
+    , lifespan_(60) // 1 minute
+    , inactive_period_(60) // 1 minute
 #ifdef ACE_DEFAULT_MAX_SOCKET_BUFSIZ
     , buffer_size_(ACE_DEFAULT_MAX_SOCKET_BUFSIZ)
 #else
@@ -368,11 +368,25 @@ public:
     return admission_max_participants_low_water_;
   }
 
-  size_t handler_threads() const { return handler_threads_; }
-  void handler_threads(size_t value) { handler_threads_ = value; }
+  void handler_threads(size_t count)
+  {
+    handler_threads_ = count;
+  }
 
-  bool synchronous_output() const { return synchronous_output_; }
-  void synchronous_output(bool value) { synchronous_output_ = value; }
+  size_t handler_threads() const
+  {
+    return handler_threads_;
+  }
+
+  void synchronous_output(bool flag)
+  {
+    synchronous_output_ = flag;
+  }
+
+  bool synchronous_output() const
+  {
+    return synchronous_output_;
+  }
 
   AdmitState admit_state() const
   {

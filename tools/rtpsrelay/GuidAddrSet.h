@@ -179,7 +179,8 @@ public:
               const OpenDDS::DCPS::ReactorTask_rch& reactor_task,
               OpenDDS::RTPS::RtpsDiscovery_rch rtps_discovery,
               RelayParticipantStatusReporter& relay_participant_status_reporter,
-              RelayStatisticsReporter& relay_stats_reporter)
+              RelayStatisticsReporter& relay_stats_reporter,
+              RelayThreadMonitor& relay_thread_monitor)
     : config_(config)
     , config_reader_listener_(OpenDDS::DCPS::make_rch<ConfigReaderListener>(ref(*this)))
     , config_reader_(OpenDDS::DCPS::make_rch<OpenDDS::DCPS::InternalDataReader<OpenDDS::DCPS::ConfigPair> >(TheServiceParticipant->config_store()->datareader_qos(), config_reader_listener_))
@@ -187,9 +188,11 @@ public:
     , rtps_discovery_(rtps_discovery)
     , relay_participant_status_reporter_(relay_participant_status_reporter)
     , relay_stats_reporter_(relay_stats_reporter)
+    , relay_thread_monitor_(relay_thread_monitor)
     , total_ips_(0)
     , total_ports_(0)
     , participant_admission_limit_reached_(false)
+    , last_admit_(true)
     , admit_state_(AdmitState::AS_NORMAL)
     , drain_state_(DrainState::DS_NORMAL)
     , drain_interval_(config_.drain_interval())
@@ -357,26 +360,16 @@ private:
 
   bool admitting() const
   {
-    // Use the correct method names from the Config class
-    if (config_.admission_max_participants_low_water() > 0 &&
-        guid_addr_set_map_.size() >= config_.admission_max_participants_high_water()) {
-      return false;
+    // TODO:
+    const size_t limit = config_.admission_control_queue_size();
+    const bool limit_okay = !limit || admission_control_queue_.size() < limit;
+    const bool admit = !participant_admission_limit_reached_ && limit_okay && relay_thread_monitor_.threads_okay() &&
+      admit_state_ == AdmitState::AS_NORMAL && drain_state_ == DrainState::DS_NORMAL;
+    if (admit != last_admit_) {
+      last_admit_ = admit;
+      relay_stats_reporter_.admission_state_changed(admit);
     }
-
-    if (participant_admission_limit_reached_) {
-      return false;
-    }
-
-    if (admit_state_ == AdmitState::AS_NOT_ADMITTING) {
-      return false;
-    }
-
-    // Add drain state check - don't admit if in PAUSED, DRAINING or DRAINED states
-    if (drain_state_ == DrainState::DS_DRAINING) {
-      return false;
-    }
-
-    return true;
+    return admit;
   }
 
   bool ignore_rtps(bool from_application_participant,
@@ -432,6 +425,7 @@ private:
   OpenDDS::RTPS::RtpsDiscovery_rch rtps_discovery_;
   RelayParticipantStatusReporter& relay_participant_status_reporter_;
   RelayStatisticsReporter& relay_stats_reporter_;
+  RelayThreadMonitor& relay_thread_monitor_;
   GuidAddrSetMap guid_addr_set_map_;
   size_t total_ips_;
   size_t total_ports_;
@@ -456,6 +450,7 @@ private:
 
   mutable ACE_Thread_Mutex mutex_;
   bool participant_admission_limit_reached_;
+  mutable bool last_admit_;
 
   using GuidAddrSetSporadicTask = OpenDDS::DCPS::PmfSporadicTask<GuidAddrSet>;
   using GuidAddrSetSporadicTask_rch = OpenDDS::DCPS::RcHandle<GuidAddrSetSporadicTask>;
