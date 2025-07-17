@@ -1,13 +1,30 @@
 #ifndef RTPSRELAY_CONFIG_H_
 #define RTPSRELAY_CONFIG_H_
 
-#include <dds/DCPS/TimeDuration.h>
 #include <dds/DCPS/GuidUtils.h>
+#include <dds/DCPS/Service_Participant.h>
+#include <dds/DCPS/TimeDuration.h>
 #include <dds/DdsDcpsInfrastructureC.h>
+
+#include <tools/dds/rtpsrelaylib/RelayC.h>
 
 #include <list>
 
 namespace RtpsRelay {
+
+const char RTPS_RELAY_ADMIT_STATE[] = "RTPS_RELAY_ADMIT_STATE";
+const OpenDDS::DCPS::EnumList<AdmitState> admit_state_encoding[] =
+  {
+    { AdmitState::AS_NORMAL, "Normal" },
+    { AdmitState::AS_NOT_ADMITTING, "NotAdmitting" }
+  };
+const char RTPS_RELAY_DRAIN_STATE[] = "RTPS_RELAY_DRAIN_STATE";
+const OpenDDS::DCPS::EnumList<DrainState> drain_state_encoding[] =
+  {
+    { DrainState::DS_NORMAL, "Normal" },
+    { DrainState::DS_DRAINING, "Draining" }
+  };
+const char RTPS_RELAY_DRAIN_INTERVAL[] = "RTPS_RELAY_DRAIN_INTERVAL";
 
 class Config {
 public:
@@ -37,9 +54,8 @@ public:
     , max_ips_per_client_(0)
     , admission_max_participants_high_water_(0)
     , admission_max_participants_low_water_(0)
-    , drain_feature_enabled_(false)
-    , drain_interval_ms_(500)
-    , drain_check_interval_(OpenDDS::DCPS::TimeDuration(0, 1000000)) // 1 second
+    , handler_threads_(1)
+    , synchronous_output_(false)
   {}
 
   void relay_id(const std::string& value)
@@ -352,21 +368,39 @@ public:
     return admission_max_participants_low_water_;
   }
 
-  // Drain feature parameters
-  bool drain_feature_enabled() const { return drain_feature_enabled_; }
-  void set_drain_feature_enabled(bool value) { drain_feature_enabled_ = value; }
-  
-  unsigned drain_interval_ms() const { return drain_interval_ms_; }
-  void set_drain_interval_ms(unsigned value) { drain_interval_ms_ = value; }
-  
-  const OpenDDS::DCPS::TimeDuration& drain_check_interval() const { return drain_check_interval_; }
-  void set_drain_check_interval(const OpenDDS::DCPS::TimeDuration& value) { drain_check_interval_ = value; }
-
   size_t handler_threads() const { return handler_threads_; }
   void handler_threads(size_t value) { handler_threads_ = value; }
 
   bool synchronous_output() const { return synchronous_output_; }
   void synchronous_output(bool value) { synchronous_output_ = value; }
+
+  AdmitState admit_state() const
+  {
+    return TheServiceParticipant->config_store()->get(RTPS_RELAY_ADMIT_STATE,
+                                                      AdmitState::AS_NORMAL,
+                                                      admit_state_encoding);
+  }
+
+  DrainState drain_state() const
+  {
+    return TheServiceParticipant->config_store()->get(RTPS_RELAY_DRAIN_STATE,
+                                                      DrainState::DS_NORMAL,
+                                                      drain_state_encoding);
+  }
+
+  OpenDDS::DCPS::TimeDuration drain_interval() const
+  {
+    return TheServiceParticipant->config_store()->get(RTPS_RELAY_DRAIN_INTERVAL,
+                                                      OpenDDS::DCPS::TimeDuration(0, 500 * 1000), // 500 ms
+                                                      OpenDDS::DCPS::ConfigStoreImpl::Format_IntegerMilliseconds);
+  }
+
+  void drain_interval(const OpenDDS::DCPS::TimeDuration& value)
+  {
+    TheServiceParticipant->config_store()->set(RTPS_RELAY_DRAIN_INTERVAL,
+                                               value,
+                                               OpenDDS::DCPS::ConfigStoreImpl::Format_IntegerMilliseconds);
+  }
 
 private:
   std::string relay_id_;
@@ -402,9 +436,6 @@ private:
   size_t admission_max_participants_low_water_;
   size_t handler_threads_;
   bool synchronous_output_;
-  bool drain_feature_enabled_;
-  unsigned drain_interval_ms_;
-  OpenDDS::DCPS::TimeDuration drain_check_interval_;
 };
 
 }

@@ -37,10 +37,15 @@ module RtpsRelay {
     @key EntityId_t entityId;
   };
 
+  // Admitting definition
+  enum AdmitState {
+    AS_NORMAL,
+    AS_NOT_ADMITTING
+  };
+
    // Drain states definition
   enum DrainState {
     DS_NORMAL,    // Normal operation, admitting new clients
-    DS_PAUSED,    // Not admitting new clients, but retaining existing ones
     DS_DRAINING   // Not admitting new clients, gradually removing existing clients
   };
 
@@ -68,12 +73,12 @@ module RtpsRelay {
   struct RelayStatus {
     @key string relay_id;
     boolean admitting;
+    AdmitState admit_state;
+    DDS::Time_t admit_state_change;
     DrainState drain_state;
+    DDS::Time_t drain_state_change;
     unsigned long local_active_participants;
     unsigned long marked_participants;
-    // TODO: Do we need these?
-    //DDS::Time_t start_time;
-    //unsigned long drain_interval_ms;
   };
 
   const string RELAY_PARTICIPANT_STATUS_TOPIC_NAME = "Relay Participant Status";
@@ -217,25 +222,15 @@ module RtpsRelay {
   };
 
   // Add relay control topic for drain commands
-  const string RELAY_CONTROL_TOPIC_NAME = "Relay Control";
-
-  // Command name constants
-  const string CMD_SET_DRAIN_STATE = "set_drain_state";
-  const string CMD_SET_DRAIN_INTERVAL = "set_drain_interval";
-
- // Define parameter value union
-  union ParameterValue switch (unsigned short) {
-    case 0: unsigned long longValue;
-    case 1: string stringValue;
-    case 2: double doubleValue;
-    case 3: boolean boolValue;
-  };
+  const string RELAY_CONFIG_CONTROL_TOPIC_NAME = "Relay Config Control";
+  const string RELAY_CONFIG_STATUS_TOPIC_NAME = "Relay Config Status";
 
   @topic
-  struct RelayControl {
+  @mutable
+  @autoid(HASH)
+  struct RelayConfig {
     @key string relay_id;
-    @key string command;  // Use CMD_* constants
-    ParameterValue parameter;
+    map<string, string> config;
   };
 };
 

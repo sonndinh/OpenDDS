@@ -272,14 +272,8 @@ int run(int argc, ACE_TCHAR* argv[])
     } else if ((arg = args.get_the_parameter("-Id"))) {
       config.relay_id(arg);
       args.consume_arg();
-    } else if ((arg = args.get_the_parameter("-EnableDrainFeature"))) {
-      config.set_drain_feature_enabled(ACE_OS::atoi(arg));
-      args.consume_arg();
-    } else if ((arg = args.get_the_parameter("-DrainIntervalMs"))) {
-      config.set_drain_interval_ms(ACE_OS::atoi(arg));
-      args.consume_arg();
-    } else if ((arg = args.get_the_parameter("-DrainCheckInterval"))) {
-      config.set_drain_check_interval(OpenDDS::DCPS::TimeDuration(ACE_OS::atoi(arg)));
+    } else if ((arg = args.get_the_parameter("-DrainInterval"))) {
+      config.drain_interval(OpenDDS::DCPS::TimeDuration(ACE_OS::atoi(arg)));
       args.consume_arg();
     } else {
       ACE_ERROR((LM_ERROR, "(%P|%t) ERROR: Invalid option: %C\n", args.get_current()));
@@ -929,7 +923,7 @@ int run(int argc, ACE_TCHAR* argv[])
   }
 
   // Register RelayControl topic for drain control commands
-  RelayControlTypeSupport_var relay_control_ts = new RelayControlTypeSupportImpl;
+  RelayConfigTypeSupport_var relay_control_ts = new RelayConfigTypeSupportImpl;
   if (relay_control_ts->register_type(relay_participant, "") != DDS::RETCODE_OK) {
     ACE_ERROR((LM_ERROR, ACE_TEXT("(%P|%t) ERROR: failed to register RelayControl type\n")));
     return EXIT_FAILURE;
@@ -937,7 +931,7 @@ int run(int argc, ACE_TCHAR* argv[])
   CORBA::String_var relay_control_type_name = relay_control_ts->get_type_name();
 
   DDS::Topic_var relay_control_topic =
-    relay_participant->create_topic(RELAY_CONTROL_TOPIC_NAME.c_str(),
+    relay_participant->create_topic(RELAY_CONFIG_CONTROL_TOPIC_NAME.c_str(),
                                    relay_control_type_name,
                                    TOPIC_QOS_DEFAULT, nullptr,
                                    OpenDDS::DCPS::DEFAULT_STATUS_MASK);

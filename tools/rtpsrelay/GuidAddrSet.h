@@ -162,12 +162,27 @@ class GuidAddrSet : public OpenDDS::DCPS::RcObject {
 public:
   using GuidAddrSetMap = std::unordered_map<OpenDDS::DCPS::GUID_t, AddrSetStats, GuidHash>;
 
+  class ConfigReaderListener : public OpenDDS::DCPS::InternalDataReaderListener<OpenDDS::DCPS::ConfigPair> {
+  public:
+    ConfigReaderListener(GuidAddrSet& guid_addr_set)
+      : InternalDataReaderListener(TheServiceParticipant->job_queue())
+      , guid_addr_set_(guid_addr_set)
+    {}
+
+    void on_data_available(InternalDataReader_rch reader);
+
+  private:
+    GuidAddrSet& guid_addr_set_;
+  };
+
   GuidAddrSet(const Config& config,
               const OpenDDS::DCPS::ReactorTask_rch& reactor_task,
               OpenDDS::RTPS::RtpsDiscovery_rch rtps_discovery,
               RelayParticipantStatusReporter& relay_participant_status_reporter,
               RelayStatisticsReporter& relay_stats_reporter)
     : config_(config)
+    , config_reader_listener_(OpenDDS::DCPS::make_rch<ConfigReaderListener>(ref(*this)))
+    , config_reader_(OpenDDS::DCPS::make_rch<OpenDDS::DCPS::InternalDataReader<OpenDDS::DCPS::ConfigPair> >(TheServiceParticipant->config_store()->datareader_qos(), config_reader_listener_))
     , reactor_task_(reactor_task)
     , rtps_discovery_(rtps_discovery)
     , relay_participant_status_reporter_(relay_participant_status_reporter)
@@ -175,10 +190,17 @@ public:
     , total_ips_(0)
     , total_ports_(0)
     , participant_admission_limit_reached_(false)
+    , admit_state_(AdmitState::AS_NORMAL)
     , drain_state_(DrainState::DS_NORMAL)
+    , drain_interval_(config_.drain_interval())
     , mark_budget_(0)
     , mark_count_(0)
-  {}
+  {
+    admit_state_change_ = { 0, 0 };
+    drain_state_change_ = { 0, 0 };
+
+    TheServiceParticipant->config_topic()->connect(config_reader_);
+  }
 
   ~GuidAddrSet();
 
@@ -281,9 +303,19 @@ public:
       return gas_.admitting();
     }
 
-    void drain_state(DrainState ds)
+    void admit_state(AdmitState as, const DDS::Time_t& now)
     {
-      gas_.drain_state(ds);
+      gas_.admit_state(as, now);
+    }
+
+    void drain_state(DrainState ds, const DDS::Time_t& now)
+    {
+      gas_.drain_state(ds, now);
+    }
+
+    void drain_interval(const OpenDDS::DCPS::TimeDuration& di)
+    {
+      gas_.drain_interval(di);
     }
 
     void populate_relay_status(RelayStatus& relay_status)
@@ -335,9 +367,12 @@ private:
       return false;
     }
 
+    if (admit_state_ == AdmitState::AS_NOT_ADMITTING) {
+      return false;
+    }
+
     // Add drain state check - don't admit if in PAUSED, DRAINING or DRAINED states
-    if (drain_state_ == DrainState::DS_PAUSED ||
-        drain_state_ == DrainState::DS_DRAINING) {
+    if (drain_state_ == DrainState::DS_DRAINING) {
       return false;
     }
 
@@ -369,7 +404,13 @@ private:
 
   void check_participants_limit();
 
-  void drain_state(DrainState ds);
+  void admit_state(AdmitState ds, const DDS::Time_t& now);
+  void drain_state(DrainState ds, const DDS::Time_t& now);
+  void drain_interval(const OpenDDS::DCPS::TimeDuration& di)
+  {
+    drain_interval_ = di;
+  }
+
   void process_drain_state(const OpenDDS::DCPS::MonotonicTimePoint& now);
 
   void populate_relay_status(RelayStatus& relay_status);
@@ -385,6 +426,8 @@ private:
   };
 
   const Config& config_;
+  OpenDDS::DCPS::ConfigReaderListener_rch config_reader_listener_;
+  OpenDDS::DCPS::ConfigReader_rch config_reader_;
   OpenDDS::DCPS::ReactorTask_rch reactor_task_;
   OpenDDS::RTPS::RtpsDiscovery_rch rtps_discovery_;
   RelayParticipantStatusReporter& relay_participant_status_reporter_;
@@ -420,7 +463,11 @@ private:
   GuidAddrSetSporadicTask_rch deactivation_task_;
   GuidAddrSetSporadicTask_rch expiration_task_;
 
+  AdmitState admit_state_;
+  DDS::Time_t admit_state_change_;
   DrainState drain_state_;
+  DDS::Time_t drain_state_change_;
+  OpenDDS::DCPS::TimeDuration drain_interval_;
   size_t mark_budget_;
   size_t mark_count_;
   GuidAddrSetSporadicTask_rch drain_task_;

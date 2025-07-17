@@ -34,8 +34,6 @@ public:
                      const DDS::SampleLostStatus&) override {}
 
 private:
-  // Change the parameter type from unsigned long to ParameterValue
-  void process_command(const std::string& command, ParameterValue parameter);
 
   std::string relay_id_;
 };

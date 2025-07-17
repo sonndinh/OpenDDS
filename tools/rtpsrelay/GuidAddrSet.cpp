@@ -117,6 +117,8 @@ GuidAddrSet::~GuidAddrSet()
   if (drain_task_) {
     drain_task_->cancel();
   }
+
+  TheServiceParticipant->config_topic()->disconnect(config_reader_);
 }
 
 GuidAddrSet::CreatedAddrSetStats GuidAddrSet::find_or_create(const OpenDDS::DCPS::GUID_t& guid,
@@ -231,8 +233,6 @@ GuidAddrSet::record_activity(const AddrPort& remote_address,
       addr_set_stats.allow_stun_responses = true;
       --mark_count_;
     }
-    break;
-  case DrainState::DS_PAUSED:
     break;
   case DrainState::DS_DRAINING:
     if (!from_application_participant && addr_set_stats.allow_stun_responses && mark_budget_) {
@@ -545,7 +545,17 @@ void GuidAddrSet::check_participants_limit()
   }
 }
 
-void GuidAddrSet::drain_state(DrainState ds)
+void GuidAddrSet::admit_state(AdmitState as,
+                              const DDS::Time_t& now)
+{
+  if (admit_state_ != as) {
+    admit_state_ = as;
+    admit_state_change_ = now;
+  }
+}
+
+void GuidAddrSet::drain_state(DrainState ds,
+                              const DDS::Time_t& now)
 {
   if (!drain_task_) {
     drain_task_ = OpenDDS::DCPS::make_rch<GuidAddrSetSporadicTask>(TheServiceParticipant->time_source(),
@@ -557,17 +567,16 @@ void GuidAddrSet::drain_state(DrainState ds)
   if (drain_state_ != ds) {
     switch (ds) {
     case DrainState::DS_NORMAL:
-    case DrainState::DS_PAUSED:
       mark_budget_ = 0;
       drain_task_->cancel();
       break;
     case DrainState::DS_DRAINING:
-      // TODO: Get intertval from config.
-      drain_task_->schedule(OpenDDS::DCPS::TimeDuration(0, 500));
+      drain_task_->schedule(config_.drain_interval());
       break;
     }
 
     drain_state_ = ds;
+    drain_state_change_ = now;
   }
 }
 
@@ -575,16 +584,42 @@ void GuidAddrSet::process_drain_state(const OpenDDS::DCPS::MonotonicTimePoint&)
 {
   ACE_GUARD(ACE_Thread_Mutex, g, mutex_);
   ++mark_budget_;
-  // TODO: Get intertval from config.
-  drain_task_->schedule(OpenDDS::DCPS::TimeDuration(0, 500));
+  drain_task_->schedule(config_.drain_interval());
 }
 
 void GuidAddrSet::populate_relay_status(RelayStatus& relay_status)
 {
   relay_status.admitting(admitting());
+  relay_status.admit_state(admit_state_);
+  relay_status.admit_state_change(admit_state_change_);
   relay_status.drain_state(drain_state_);
+  relay_status.drain_state_change(drain_state_change_);
   relay_status.local_active_participants(guid_addr_set_map_.size());
   relay_status.marked_participants(mark_count_);
+}
+
+void GuidAddrSet::ConfigReaderListener::on_data_available(InternalDataReader_rch reader)
+{
+  OpenDDS::DCPS::InternalDataReader<OpenDDS::DCPS::ConfigPair>::SampleSequence samples;
+  OpenDDS::DCPS::InternalSampleInfoSequence infos;
+  reader->read(samples, infos, DDS::LENGTH_UNLIMITED,
+               DDS::NOT_READ_SAMPLE_STATE, DDS::ANY_VIEW_STATE, DDS::ALIVE_INSTANCE_STATE);
+
+  GuidAddrSet::Proxy proxy(guid_addr_set_);
+
+  for (size_t idx = 0; idx != samples.size(); ++idx) {
+    const OpenDDS::DCPS::ConfigPair& p = samples[idx];
+    const DDS::SampleInfo& info = infos[idx];
+    if (info.valid_data) {
+      if (p.key() == RTPS_RELAY_ADMIT_STATE) {
+        proxy.admit_state(guid_addr_set_.config_.admit_state(), info.source_timestamp);
+      } else if (p.key() == RTPS_RELAY_DRAIN_STATE) {
+        proxy.drain_state(guid_addr_set_.config_.drain_state(), info.source_timestamp);
+      } else if (p.key() == RTPS_RELAY_DRAIN_INTERVAL) {
+        proxy.drain_interval(guid_addr_set_.config_.drain_interval());
+      }
+    }
+  }
 }
 
 } // namespace RtpsRelay
