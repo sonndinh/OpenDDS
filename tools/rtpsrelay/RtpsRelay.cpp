@@ -922,7 +922,7 @@ int run(int argc, ACE_TCHAR* argv[])
     return EXIT_FAILURE;
   }
 
-  // Register RelayControl topic for drain control commands
+  // Register Relay Config Control topic for drain control
   RelayConfigTypeSupport_var relay_control_ts = new RelayConfigTypeSupportImpl;
   if (relay_control_ts->register_type(relay_participant, "") != DDS::RETCODE_OK) {
     ACE_ERROR((LM_ERROR, ACE_TEXT("(%P|%t) ERROR: failed to register RelayControl type\n")));
@@ -959,8 +959,6 @@ int run(int argc, ACE_TCHAR* argv[])
     return EXIT_FAILURE;
   }
 
-  // Update RelayStatusReporter to include drain status information
-  // Modify the existing creation of relay_status_reporter to pass drain_manager
   RelayStatusReporter relay_status_reporter(config, *guid_addr_set, relay_status_writer, reactor);
 
   RelayHttpMetaDiscovery relay_http_meta_discovery(config, meta_discovery_content_type, meta_discovery_content, *guid_addr_set);
