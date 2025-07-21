@@ -37,16 +37,14 @@ module RtpsRelay {
     @key EntityId_t entityId;
   };
 
-  // Admitting definition
   enum AdmitState {
     AS_NORMAL,
     AS_NOT_ADMITTING
   };
 
-   // Drain states definition
   enum DrainState {
-    DS_NORMAL,    // Normal operation, admitting new clients
-    DS_DRAINING   // Not admitting new clients, gradually removing existing clients
+    DS_NORMAL,
+    DS_DRAINING // gradually removing existing clients
   };
 
   typedef sequence<string> StringSequence;
@@ -221,7 +219,6 @@ module RtpsRelay {
     sequence<OpenDDSModuleStatistics> opendds_modules;
   };
 
-  // Add relay control topic for drain commands
   const string RELAY_CONFIG_CONTROL_TOPIC_NAME = "Relay Config Control";
   const string RELAY_CONFIG_STATUS_TOPIC_NAME = "Relay Config Status";
 

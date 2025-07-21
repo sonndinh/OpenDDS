@@ -8,34 +8,28 @@
 
 namespace RtpsRelay {
 
-class RelayControlHandler : public OpenDDS::DCPS::LocalObject<DDS::DataReaderListener> {
+class RelayConfigControlListener : public OpenDDS::DCPS::LocalObject<DDS::DataReaderListener> {
 public:
-  RelayControlHandler(const std::string& relay_id);
-
   // Override all required virtual methods:
   void on_data_available(DDS::DataReader_ptr reader) override;
 
   void on_requested_deadline_missed(DDS::DataReader_ptr,
-                                   const DDS::RequestedDeadlineMissedStatus&) override {}
+                                    const DDS::RequestedDeadlineMissedStatus&) override {}
 
   void on_requested_incompatible_qos(DDS::DataReader_ptr,
-                                    const DDS::RequestedIncompatibleQosStatus&) override {}
+                                     const DDS::RequestedIncompatibleQosStatus&) override {}
 
   void on_sample_rejected(DDS::DataReader_ptr,
-                         const DDS::SampleRejectedStatus&) override {}
+                          const DDS::SampleRejectedStatus&) override {}
 
   void on_liveliness_changed(DDS::DataReader_ptr,
-                            const DDS::LivelinessChangedStatus&) override {}
+                             const DDS::LivelinessChangedStatus&) override {}
 
   void on_subscription_matched(DDS::DataReader_ptr,
-                              const DDS::SubscriptionMatchedStatus&) override {}
+                               const DDS::SubscriptionMatchedStatus&) override {}
 
   void on_sample_lost(DDS::DataReader_ptr,
-                     const DDS::SampleLostStatus&) override {}
-
-private:
-
-  std::string relay_id_;
+                      const DDS::SampleLostStatus&) override {}
 };
 
 }

@@ -444,7 +444,7 @@ CORBA::ULong VerticalHandler::process_message(const ACE_INET_Addr& remote_addres
         record_activity(proxy, addr_port, now, src_guid, type, msg_len, from_application_participant, &allow_stun_responses);
 
       if (allow_stun_responses && response_needed) {
-        const size_t bytes_sent = send(remote_address, std::move(response), now);
+        const auto bytes_sent = send(remote_address, std::move(response), now);
         ++messages_sent;
         if (bytes_sent) {
           from_psr.output_message(bytes_sent, type);

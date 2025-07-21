@@ -1,7 +1,5 @@
 #include "RelayStatusReporter.h"
 
-#include <ace/OS_NS_time.h>
-
 namespace RtpsRelay {
 
 RelayStatusReporter::RelayStatusReporter(const Config& config,

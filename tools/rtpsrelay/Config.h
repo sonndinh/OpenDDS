@@ -388,27 +388,6 @@ public:
     return synchronous_output_;
   }
 
-  AdmitState admit_state() const
-  {
-    return TheServiceParticipant->config_store()->get(RTPS_RELAY_ADMIT_STATE,
-                                                      AdmitState::AS_NORMAL,
-                                                      admit_state_encoding);
-  }
-
-  DrainState drain_state() const
-  {
-    return TheServiceParticipant->config_store()->get(RTPS_RELAY_DRAIN_STATE,
-                                                      DrainState::DS_NORMAL,
-                                                      drain_state_encoding);
-  }
-
-  OpenDDS::DCPS::TimeDuration drain_interval() const
-  {
-    return TheServiceParticipant->config_store()->get(RTPS_RELAY_DRAIN_INTERVAL,
-                                                      OpenDDS::DCPS::TimeDuration(0, 500 * 1000), // 500 ms
-                                                      OpenDDS::DCPS::ConfigStoreImpl::Format_IntegerMilliseconds);
-  }
-
   void drain_interval(const OpenDDS::DCPS::TimeDuration& value)
   {
     TheServiceParticipant->config_store()->set(RTPS_RELAY_DRAIN_INTERVAL,

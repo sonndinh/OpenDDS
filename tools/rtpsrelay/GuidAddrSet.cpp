@@ -545,8 +545,7 @@ void GuidAddrSet::check_participants_limit()
   }
 }
 
-void GuidAddrSet::admit_state(AdmitState as,
-                              const DDS::Time_t& now)
+void GuidAddrSet::admit_state(AdmitState as, const DDS::Time_t& now)
 {
   if (admit_state_ != as) {
     admit_state_ = as;
@@ -554,8 +553,7 @@ void GuidAddrSet::admit_state(AdmitState as,
   }
 }
 
-void GuidAddrSet::drain_state(DrainState ds,
-                              const DDS::Time_t& now)
+void GuidAddrSet::drain_state(DrainState ds, const DDS::Time_t& now)
 {
   if (!drain_task_) {
     drain_task_ = OpenDDS::DCPS::make_rch<GuidAddrSetSporadicTask>(TheServiceParticipant->time_source(),
@@ -571,7 +569,7 @@ void GuidAddrSet::drain_state(DrainState ds,
       drain_task_->cancel();
       break;
     case DrainState::DS_DRAINING:
-      drain_task_->schedule(config_.drain_interval());
+      drain_task_->schedule(drain_interval_);
       break;
     }
 
@@ -584,7 +582,7 @@ void GuidAddrSet::process_drain_state(const OpenDDS::DCPS::MonotonicTimePoint&)
 {
   ACE_GUARD(ACE_Thread_Mutex, g, mutex_);
   ++mark_budget_;
-  drain_task_->schedule(config_.drain_interval());
+  drain_task_->schedule(drain_interval_);
 }
 
 void GuidAddrSet::populate_relay_status(RelayStatus& relay_status)
@@ -600,7 +598,8 @@ void GuidAddrSet::populate_relay_status(RelayStatus& relay_status)
 
 void GuidAddrSet::ConfigReaderListener::on_data_available(InternalDataReader_rch reader)
 {
-  OpenDDS::DCPS::InternalDataReader<OpenDDS::DCPS::ConfigPair>::SampleSequence samples;
+  using OpenDDS::DCPS::ConfigStoreImpl;
+  OpenDDS::DCPS::ConfigReader::SampleSequence samples;
   OpenDDS::DCPS::InternalSampleInfoSequence infos;
   reader->read(samples, infos, DDS::LENGTH_UNLIMITED,
                DDS::NOT_READ_SAMPLE_STATE, DDS::ANY_VIEW_STATE, DDS::ALIVE_INSTANCE_STATE);
@@ -608,15 +607,24 @@ void GuidAddrSet::ConfigReaderListener::on_data_available(InternalDataReader_rch
   GuidAddrSet::Proxy proxy(guid_addr_set_);
 
   for (size_t idx = 0; idx != samples.size(); ++idx) {
-    const OpenDDS::DCPS::ConfigPair& p = samples[idx];
-    const DDS::SampleInfo& info = infos[idx];
+    const auto& info = infos[idx];
     if (info.valid_data) {
-      if (p.key() == RTPS_RELAY_ADMIT_STATE) {
-        proxy.admit_state(guid_addr_set_.config_.admit_state(), info.source_timestamp);
-      } else if (p.key() == RTPS_RELAY_DRAIN_STATE) {
-        proxy.drain_state(guid_addr_set_.config_.drain_state(), info.source_timestamp);
-      } else if (p.key() == RTPS_RELAY_DRAIN_INTERVAL) {
-        proxy.drain_interval(guid_addr_set_.config_.drain_interval());
+      const auto& pair = samples[idx];
+      if (pair.key() == RTPS_RELAY_ADMIT_STATE) {
+        AdmitState admit = AdmitState::AS_NORMAL;
+        if (ConfigStoreImpl::convert_value(pair.value(), admit_state_encoding, admit)) {
+          proxy.admit_state(admit, info.source_timestamp);
+        }
+      } else if (pair.key() == RTPS_RELAY_DRAIN_STATE) {
+        DrainState drain = DrainState::DS_NORMAL;
+        if (ConfigStoreImpl::convert_value(pair.value(), drain_state_encoding, drain)) {
+          proxy.drain_state(drain, info.source_timestamp);
+        }
+      } else if (pair.key() == RTPS_RELAY_DRAIN_INTERVAL) {
+        OpenDDS::DCPS::TimeDuration interval;
+        if (ConfigStoreImpl::convert_value(pair, ConfigStoreImpl::Format_IntegerMilliseconds, interval)) {
+          proxy.drain_interval(interval);
+        }
       }
     }
   }

@@ -29,9 +29,9 @@ struct InetAddrHash {
 using IpToPorts = std::unordered_map<ACE_INET_Addr, PortSet, InetAddrHash>;
 
 struct AddrSetStats {
-  bool allow_rtps;
-  bool allow_stun_responses;
-  bool seen_spdp_message;
+  bool allow_rtps = false;
+  bool allow_stun_responses = true;
+  bool seen_spdp_message = false;
   IpToPorts ip_to_ports;
   ParticipantStatisticsReporter spdp_stats_reporter;
   ParticipantStatisticsReporter sedp_stats_reporter;
@@ -49,10 +49,7 @@ struct AddrSetStats {
                RelayStatisticsReporter& a_relay_stats_reporter,
                size_t& a_total_ips,
                size_t& a_total_ports)
-    : allow_rtps(false)
-    , allow_stun_responses(true)
-    , seen_spdp_message(false)
-    , spdp_stats_reporter(rtps_guid_to_relay_guid(guid), "SPDP")
+    : spdp_stats_reporter(rtps_guid_to_relay_guid(guid), "SPDP")
     , sedp_stats_reporter(rtps_guid_to_relay_guid(guid), "SEDP")
     , data_stats_reporter(rtps_guid_to_relay_guid(guid), "DATA")
     , session_start(a_session_start)
@@ -162,14 +159,14 @@ class GuidAddrSet : public OpenDDS::DCPS::RcObject {
 public:
   using GuidAddrSetMap = std::unordered_map<OpenDDS::DCPS::GUID_t, AddrSetStats, GuidHash>;
 
-  class ConfigReaderListener : public OpenDDS::DCPS::InternalDataReaderListener<OpenDDS::DCPS::ConfigPair> {
+  class ConfigReaderListener : public OpenDDS::DCPS::ConfigListener {
   public:
-    ConfigReaderListener(GuidAddrSet& guid_addr_set)
+    explicit ConfigReaderListener(GuidAddrSet& guid_addr_set)
       : InternalDataReaderListener(TheServiceParticipant->job_queue())
       , guid_addr_set_(guid_addr_set)
     {}
 
-    void on_data_available(InternalDataReader_rch reader);
+    void on_data_available(InternalDataReader_rch reader) override;
 
   private:
     GuidAddrSet& guid_addr_set_;
@@ -183,25 +180,13 @@ public:
               RelayThreadMonitor& relay_thread_monitor)
     : config_(config)
     , config_reader_listener_(OpenDDS::DCPS::make_rch<ConfigReaderListener>(ref(*this)))
-    , config_reader_(OpenDDS::DCPS::make_rch<OpenDDS::DCPS::InternalDataReader<OpenDDS::DCPS::ConfigPair> >(TheServiceParticipant->config_store()->datareader_qos(), config_reader_listener_))
+    , config_reader_(OpenDDS::DCPS::make_rch<OpenDDS::DCPS::ConfigReader>(TheServiceParticipant->config_store()->datareader_qos(), config_reader_listener_))
     , reactor_task_(reactor_task)
     , rtps_discovery_(rtps_discovery)
     , relay_participant_status_reporter_(relay_participant_status_reporter)
     , relay_stats_reporter_(relay_stats_reporter)
     , relay_thread_monitor_(relay_thread_monitor)
-    , total_ips_(0)
-    , total_ports_(0)
-    , participant_admission_limit_reached_(false)
-    , last_admit_(true)
-    , admit_state_(AdmitState::AS_NORMAL)
-    , drain_state_(DrainState::DS_NORMAL)
-    , drain_interval_(config_.drain_interval())
-    , mark_budget_(0)
-    , mark_count_(0)
   {
-    admit_state_change_ = { 0, 0 };
-    drain_state_change_ = { 0, 0 };
-
     TheServiceParticipant->config_topic()->connect(config_reader_);
   }
 
@@ -398,6 +383,7 @@ private:
 
   void admit_state(AdmitState ds, const DDS::Time_t& now);
   void drain_state(DrainState ds, const DDS::Time_t& now);
+
   void drain_interval(const OpenDDS::DCPS::TimeDuration& di)
   {
     drain_interval_ = di;
@@ -426,8 +412,8 @@ private:
   RelayStatisticsReporter& relay_stats_reporter_;
   RelayThreadMonitor& relay_thread_monitor_;
   GuidAddrSetMap guid_addr_set_map_;
-  size_t total_ips_;
-  size_t total_ports_;
+  size_t total_ips_ = 0;
+  size_t total_ports_ = 0;
 
   using RemoteMap = std::unordered_map<Remote, OpenDDS::DCPS::GUID_t, RemoteHash>;
   RemoteMap remote_map_;
@@ -448,8 +434,8 @@ private:
   RejectedAddressExpirationQueue rejected_address_expiration_queue_;
 
   mutable ACE_Thread_Mutex mutex_;
-  bool participant_admission_limit_reached_;
-  mutable bool last_admit_;
+  bool participant_admission_limit_reached_ = false;
+  mutable bool last_admit_ = true;
 
   using GuidAddrSetSporadicTask = OpenDDS::DCPS::PmfSporadicTask<GuidAddrSet>;
   using GuidAddrSetSporadicTask_rch = OpenDDS::DCPS::RcHandle<GuidAddrSetSporadicTask>;
@@ -457,13 +443,13 @@ private:
   GuidAddrSetSporadicTask_rch deactivation_task_;
   GuidAddrSetSporadicTask_rch expiration_task_;
 
-  AdmitState admit_state_;
-  DDS::Time_t admit_state_change_;
-  DrainState drain_state_;
-  DDS::Time_t drain_state_change_;
+  AdmitState admit_state_ = AdmitState::AS_NORMAL;
+  DDS::Time_t admit_state_change_ = {0, 0};
+  DrainState drain_state_ = DrainState::DS_NORMAL;
+  DDS::Time_t drain_state_change_ = {0, 0};
   OpenDDS::DCPS::TimeDuration drain_interval_;
-  size_t mark_budget_;
-  size_t mark_count_;
+  size_t mark_budget_ = 0;
+  size_t mark_count_ = 0;
   GuidAddrSetSporadicTask_rch drain_task_;
 };
 
