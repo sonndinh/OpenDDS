@@ -960,7 +960,7 @@ int run(int argc, ACE_TCHAR* argv[])
 
   DDS::Topic_var relay_config_control_topic =
     relay_participant->create_topic(RELAY_CONFIG_CONTROL_TOPIC_NAME.c_str(), relay_config_type_name,
-                                    TOPIC_QOS_DEFAULT, nullptr, OpenDDS::DCPS::DEFAULT_STATUS_MASK);
+                                    TOPIC_QOS_DEFAULT, nullptr, 0);
   if (!relay_config_control_topic) {
     ACE_ERROR((LM_ERROR, "(%P|%t) ERROR: failed to create %C\n", RELAY_CONFIG_CONTROL_TOPIC_NAME.c_str()));
     return EXIT_FAILURE;
@@ -993,7 +993,7 @@ int run(int argc, ACE_TCHAR* argv[])
 
   DDS::Topic_var relay_config_status_topic =
     relay_participant->create_topic(RELAY_CONFIG_STATUS_TOPIC_NAME.c_str(), relay_config_type_name,
-                                    TOPIC_QOS_DEFAULT, nullptr, OpenDDS::DCPS::DEFAULT_STATUS_MASK);
+                                    TOPIC_QOS_DEFAULT, nullptr, 0);
   if (!relay_config_status_topic) {
     ACE_ERROR((LM_ERROR, "(%P|%t) ERROR: failed to create %C\n", RELAY_CONFIG_STATUS_TOPIC_NAME.c_str()));
     return EXIT_FAILURE;
@@ -1008,12 +1008,14 @@ int run(int argc, ACE_TCHAR* argv[])
   RelayConfigDataWriter_var relay_config_status_data_writer = RelayConfigDataWriter::_narrow(relay_config_status_writer);
   if (!relay_config_status_data_writer) {
     ACE_ERROR((LM_ERROR, "(%P|%t) ERROR: failed to narrow %C data writer\n", RELAY_CONFIG_STATUS_TOPIC_NAME.c_str()));
+    return EXIT_FAILURE;
   }
   const auto internal_config_listener =
     OpenDDS::DCPS::make_rch<InternalConfigListener>(relay_config_status_data_writer, config.relay_id());
   const auto internal_config_reader =
     OpenDDS::DCPS::make_rch<OpenDDS::DCPS::ConfigReader>(TheServiceParticipant->config_store()->datareader_qos(),
                                                          internal_config_listener);
+  TheServiceParticipant->config_topic()->connect(internal_config_reader);
 
   RelayStatusReporter relay_status_reporter(config, *guid_addr_set, relay_status_writer, reactor);
 
@@ -1033,11 +1035,14 @@ int run(int argc, ACE_TCHAR* argv[])
   const auto status = reactor_task->run_reactor(config.handler_threads(), config.run_time());
   if (status != EXIT_SUCCESS) {
     ACE_ERROR((LM_ERROR, "(%P:%t) ERROR: Failed to run reactor task: %m\n"));
+    return EXIT_FAILURE;
   }
 
   if (run_thread_mon) {
     relay_thread_monitor->stop();
   }
+
+  TheServiceParticipant->config_topic()->disconnect(internal_config_reader);
 
   application_participant->delete_contained_entities();
   factory->delete_participant(application_participant);

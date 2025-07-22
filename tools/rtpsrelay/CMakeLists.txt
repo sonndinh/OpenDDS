@@ -29,3 +29,5 @@ add_executable(RtpsRelay
 )
 _opendds_executable(RtpsRelay)
 target_link_libraries(RtpsRelay PRIVATE ${dep_libs})
+
+add_subdirectory(control)
