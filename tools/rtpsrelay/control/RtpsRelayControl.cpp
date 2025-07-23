@@ -67,6 +67,10 @@ int write_if_ready(const RelayConfig& config,
       ACE_ERROR((LM_ERROR, "ERROR: wait_for_acknowledgments failed\n"));
       return EXIT_FAILURE;
     }
+    std::cerr << "Sent control" << std::endl;
+    if (!keep_running) {
+      std::cerr << "Running until status contains requested changes" << std::endl;
+    }
     DDS::StatusCondition_var status_cond{relay_config_data_writer->get_statuscondition()};
     DDS::ConditionSeq conditions;
     waiter->get_conditions(conditions);
@@ -105,7 +109,7 @@ int read(const RelayConfigDataReader_var& reader, RelayConfig& config, bool& don
       }
     } else {
       if (info.instance_state != DDS::ALIVE_INSTANCE_STATE) {
-        std::cout << "Relay no longer available: " << sample.relay_id() << std::endl;
+        std::cerr << "Relay no longer available: " << sample.relay_id() << std::endl;
         if (sample.relay_id() == config.relay_id() && !keep_running) {
           done = true;
         }
@@ -146,9 +150,9 @@ int run(int argc, ACE_TCHAR* argv[])
       if (pos && pos != std::string::npos) {
         config.config()[arg_str.substr(0, pos)] = arg_str.substr(pos + 1);
       } else {
-        throw std::runtime_error{"Argument to -Set must be Name=Value: " + arg_str};
+        throw std::runtime_error{"Argument to -Set must be NAME=Value: " + arg_str};
       }
-    } else if (args.cur_arg_strncasecmp("-KeepRunning")) {
+    } else if (args.cur_arg_strncasecmp("-KeepRunning") == 0) {
       keep_running = true;
     } else {
       ACE_ERROR((LM_ERROR, "ERROR: Invalid argument: %C\n", args.get_current()));
@@ -157,7 +161,7 @@ int run(int argc, ACE_TCHAR* argv[])
   }
 
   if (keep_running || config.relay_id().empty()) {
-    std::cout << "Running until Ctrl-C" << std::endl;
+    std::cerr << "Running until Ctrl-C" << std::endl;
   }
 
   DDS::DomainParticipantQos participant_qos;
@@ -182,14 +186,12 @@ int run(int argc, ACE_TCHAR* argv[])
   CORBA::String_var relay_config_type_name{relay_config_ts->get_type_name()};
 
   DDS::PublisherQos publisher_qos;
-  DDS::SubscriberQos subscriber_qos;
   participant->get_default_publisher_qos(publisher_qos);
+  publisher_qos.partition.name.length(1);
+  publisher_qos.partition.name[0] = config.relay_id().empty() ? "*" : config.relay_id().c_str();
+  DDS::SubscriberQos subscriber_qos;
   participant->get_default_subscriber_qos(subscriber_qos);
-  if (!config.relay_id().empty()) {
-    publisher_qos.partition.name.length(1);
-    publisher_qos.partition.name[0] = config.relay_id().c_str();
-    subscriber_qos.partition.name = publisher_qos.partition.name;
-  }
+  subscriber_qos.partition.name = publisher_qos.partition.name;
 
   DDS::WaitSet_var waiter = new DDS::WaitSet;
 
@@ -265,6 +267,7 @@ int run(int argc, ACE_TCHAR* argv[])
 
   DDS::GuardCondition_var shutdown_guard{new DDS::GuardCondition};
   ShutdownHandler handler{shutdown_guard};
+  waiter->attach_condition(shutdown_guard);
 
   for (auto done{false}; !done;) {
     if (relay_config_data_writer) {
