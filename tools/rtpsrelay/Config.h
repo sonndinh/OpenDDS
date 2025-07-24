@@ -11,7 +11,6 @@
 #include <list>
 
 namespace RtpsRelay {
-
 const char RTPS_RELAY_ADMIT_STATE[] = "RTPS_RELAY_ADMIT_STATE";
 const OpenDDS::DCPS::EnumList<AdmitState> admit_state_encoding[] =
   {
@@ -56,7 +55,9 @@ public:
     , admission_max_participants_low_water_(0)
     , handler_threads_(1)
     , synchronous_output_(false)
-  {}
+  {
+    TheServiceParticipant->config_store()->add_section("", "rtps_relay");
+  }
 
   void relay_id(const std::string& value)
   {

@@ -28,7 +28,22 @@
 
 using namespace RtpsRelay;
 
-bool keep_running{false};
+bool keep_running{false}, show_all{false};
+static constexpr char prefix[]{"RTPS_RELAY_"};
+
+void filter(RelayConfig& config)
+{
+  if (show_all) {
+    return;
+  }
+  for (auto iter{config.config().begin()}; iter != config.config().end();) {
+    if (iter->first.substr(0, sizeof(prefix) - 1) == prefix) {
+      ++iter;
+    } else {
+      config.config().erase(iter++);
+    }
+  }
+}
 
 struct ShutdownHandler : ACE_Event_Handler {
   explicit ShutdownHandler(const DDS::GuardCondition_var& guard)
@@ -93,6 +108,7 @@ int read(const RelayConfigDataReader_var& reader, RelayConfig& config, bool& don
   DDS::ReturnCode_t ret;
   while ((ret = reader->take_next_sample(sample, info)) == DDS::RETCODE_OK) {
     if (info.valid_data) {
+      filter(sample);
       std::cout << OpenDDS::DCPS::to_json(sample) << std::endl;
       if (sample.relay_id() == config.relay_id()) {
         for (auto it{config.config().begin()}; it != config.config().end();) {
@@ -148,10 +164,16 @@ int run(int argc, ACE_TCHAR* argv[])
       const std::string arg_str{arg};
       const auto pos{arg_str.find_first_of('=')};
       if (pos && pos != std::string::npos) {
-        config.config()[arg_str.substr(0, pos)] = arg_str.substr(pos + 1);
+        const auto key{OpenDDS::DCPS::ConfigPair::canonicalize(arg_str.substr(0, pos))};
+        config.config()[key] = arg_str.substr(pos + 1);
+        if (key.substr(0, sizeof(prefix) - 1) != prefix) {
+          show_all = true;
+        }
       } else {
         throw std::runtime_error{"Argument to -Set must be NAME=Value: " + arg_str};
       }
+    } else if (args.cur_arg_strncasecmp("-ShowAll") == 0) {
+      show_all = true;
     } else if (args.cur_arg_strncasecmp("-KeepRunning") == 0) {
       keep_running = true;
     } else {

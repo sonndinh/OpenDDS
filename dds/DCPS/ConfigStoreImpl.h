@@ -307,6 +307,8 @@ public:
                         NetworkAddressFormat format,
                         NetworkAddressKind kind) const;
 
+  void add_section(const String& prefix, const String& name);
+
   // Section names are identified as values starting with '@' and
   // having the original text of the last part of the section name.
   // This is used to create objects of different types.

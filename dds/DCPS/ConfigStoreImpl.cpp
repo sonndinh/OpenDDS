@@ -978,6 +978,11 @@ ConfigStoreImpl::get(const char* key,
   return retval;
 }
 
+void ConfigStoreImpl::add_section(const String& prefix, const String& name)
+{
+  set(prefix + (prefix.empty() ? "" : "_") + name, '@' + name);
+}
+
 ConfigStoreImpl::StringList
 ConfigStoreImpl::get_section_names(const String& prefix) const
 {
