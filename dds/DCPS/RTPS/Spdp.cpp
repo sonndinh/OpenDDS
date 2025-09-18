@@ -2569,7 +2569,7 @@ void Spdp::SpdpTransport::init_thread_status_task()
     const DCPS::RcHandle<Sedp> sedp = outer->sedp_;
     if (!sedp) return;
     const DCPS::ReactorTask_rch reactor_task = sedp->reactor_task();
-    thread_status_task_ = DCPS::make_rch<PeriodicThreadStatus>(reactor_task, ref(*this));
+    thread_status_task_ = DCPS::make_rch<SpdpPeriodic>(reactor_task, ref(*this), &SpdpTransport::thread_status_task);
   }
 #endif /* DDS_HAS_MINIMUM_BIT */
 }
