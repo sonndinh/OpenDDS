@@ -128,19 +128,17 @@ GuidAddrSet::CreatedAddrSetStats GuidAddrSet::find_or_create(const OpenDDS::DCPS
   const bool create = it == guid_addr_set_map_.end();
   if (create) {
     const auto it_bool_pair =
-      guid_addr_set_map_.insert(std::make_pair(guid, AddrSetStats(guid, now, relay_stats_reporter_, total_ips_, total_ports_)));
+      guid_addr_set_map_.insert(std::make_pair(guid, AddrSetStats(now, relay_stats_reporter_, total_ips_, total_ports_)));
     it = it_bool_pair.first;
     relay_stats_reporter_.local_active_participants(guid_addr_set_map_.size(), now);
   }
   return {create, it->second};
 }
 
-ParticipantStatisticsReporter&
+void
 GuidAddrSet::record_activity(const AddrPort& remote_address,
                              const OpenDDS::DCPS::MonotonicTimePoint& now,
                              const OpenDDS::DCPS::GUID_t& src_guid,
-                             MessageType msg_type,
-                             const size_t& msg_len,
                              bool from_application_participant,
                              bool* allow_stun_responses,
                              const RelayHandler& handler)
@@ -223,10 +221,6 @@ GuidAddrSet::record_activity(const AddrPort& remote_address,
     schedule_expiration();
   }
 
-  ParticipantStatisticsReporter& stats_reporter =
-    *addr_set_stats.select_stats_reporter(remote_address.port);
-  stats_reporter.input_message(msg_len, msg_type);
-
   switch (drain_state_) {
   case DrainState::DS_NORMAL:
     if (!addr_set_stats.allow_stun_responses) {
@@ -246,8 +240,6 @@ GuidAddrSet::record_activity(const AddrPort& remote_address,
   if (allow_stun_responses) {
     *allow_stun_responses = addr_set_stats.allow_stun_responses;
   }
-
-  return stats_reporter;
 }
 
 void GuidAddrSet::schedule_rejected_address_expiration()
@@ -276,7 +268,7 @@ void GuidAddrSet::process_rejected_address_expiration(const OpenDDS::DCPS::Monot
       ACE_DEBUG((LM_INFO, "(%P|%t) INFO: GuidAddrSet::process_rejected_address_expiration "
                  "Rejected address %C expired %C ago, removing from rejected address map.\n",
                  OpenDDS::DCPS::LogAddr(reject->first).c_str(),
-                 ago.str().c_str()));
+                 ago.sec_str().c_str()));
     }
     rejected_address_map_.erase(reject);
     rejected_address_expiration_queue_.pop_front();
@@ -374,7 +366,7 @@ void GuidAddrSet::process_expiration(const OpenDDS::DCPS::MonotonicTimePoint& no
                      "%C %C expired %C ago %C into session ips=%B total=%B remote=%B deactivation=%B expire=%B admit=%B\n",
                      guid_to_string(ga.guid).c_str(),
                      OpenDDS::DCPS::LogAddr(ga.address.addr).c_str(),
-                     ago.str().c_str(),
+                     ago.sec_str().c_str(),
                      get_session_time(ga.guid, now).sec_str().c_str(),
                      addr_stats.ip_to_ports.size(),
                      guid_addr_set_map_.size(),
@@ -473,12 +465,6 @@ void GuidAddrSet::remove(const OpenDDS::DCPS::GUID_t& guid,
 {
   AddrSetStats& addr_stats = it->second;
   const auto session_time = addr_stats.get_session_time(now);
-  addr_stats.spdp_stats_reporter.report(addr_stats.session_start, now);
-  addr_stats.spdp_stats_reporter.unregister();
-  addr_stats.sedp_stats_reporter.report(addr_stats.session_start, now);
-  addr_stats.sedp_stats_reporter.unregister();
-  addr_stats.data_stats_reporter.report(addr_stats.session_start, now);
-  addr_stats.data_stats_reporter.unregister();
 
   for (const auto& by_ip : addr_stats.ip_to_ports) {
     const auto remote_iter = remote_map_.find(Remote(by_ip.first, guid));
