@@ -20,6 +20,7 @@
 #include <dds/DCPS/MultiTask.h>
 #include <dds/DCPS/MulticastManager.h>
 #include <dds/DCPS/PeriodicTask.h>
+#include <dds/DCPS/PeriodicEvent.h>
 #include <dds/DCPS/PoolAllocationBase.h>
 #include <dds/DCPS/PoolAllocator.h>
 #include <dds/DCPS/RcEventHandler.h>
@@ -490,7 +491,7 @@ private:
     const ACE_SOCK_Dgram& choose_recv_socket(ACE_HANDLE h) const;
     virtual int handle_input(ACE_HANDLE h);
 
-    void init_thread_status_task();
+    void init_thread_status_event();
 
     void open(const DCPS::ReactorTask_rch& reactor_task,
               const DCPS::JobQueue_rch& job_queue);
@@ -549,7 +550,7 @@ private:
     DCPS::MulticastManager multicast_manager_;
     DCPS::NetworkAddressSet send_addrs_;
     ACE_Message_Block buff_, wbuff_;
-    typedef DCPS::PmfPeriodicTask<SpdpTransport> SpdpPeriodic;
+    typedef DCPS::PmfEvent<SpdpTransport> SpdpTransportEvent;
     typedef DCPS::PmfSporadicTask<SpdpTransport> SpdpSporadic;
     typedef DCPS::PmfMultiTask<SpdpTransport> SpdpMulti;
     void send_local(const DCPS::MonotonicTimePoint& now);
@@ -559,8 +560,8 @@ private:
     OPENDDS_LIST(DCPS::GUID_t) directed_guids_;
     void process_lease_expirations(const DCPS::MonotonicTimePoint& now);
     DCPS::RcHandle<SpdpSporadic> lease_expiration_task_;
-    void thread_status_task(const DCPS::MonotonicTimePoint& now);
-    DCPS::RcHandle<SpdpPeriodic> thread_status_task_;
+    void thread_status_task();
+    DCPS::PeriodicEvent_rch thread_status_event_;
     DCPS::RcHandle<DCPS::InternalDataReader<DCPS::NetworkInterfaceAddress> > network_interface_address_reader_;
 #if OPENDDS_CONFIG_SECURITY
     void process_handshake_deadlines(const DCPS::MonotonicTimePoint& now);
