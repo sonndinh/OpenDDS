@@ -2662,7 +2662,7 @@ Spdp::SpdpTransport::enable_periodic_tasks()
   const DCPS::ThreadStatusManager& thread_status_manager = TheServiceParticipant->get_thread_status_manager();
   if (thread_status_manager.update_thread_status() && outer->harvest_thread_status_) {
     const TimeDuration period = thread_status_manager.thread_status_interval();
-    if (!thread_status_event_->enable(period, false)) {
+    if (!thread_status_event_->enable(period)) {
       if (log_level >= LogLevel::Warning) {
         ACE_ERROR((LM_WARNING, "(%P|%t) WARNING: Spdp::SpdpTransport::enable_periodic_tasks: "
                    "failed to enable thread status harvesting with period: %C\n", period.str().c_str()));
