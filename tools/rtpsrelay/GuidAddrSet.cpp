@@ -251,8 +251,8 @@ void GuidAddrSet::schedule_rejected_address_expiration()
   } else {
     if (!rejected_address_expiration_task_) {
       rejected_address_expiration_task_ =
-        OpenDDS::DCPS::make_rch<GuidAddrSetSporadicTask>(TheServiceParticipant->time_source(), reactor_task_,
-                                                         rchandle_from(this), &GuidAddrSet::process_rejected_address_expiration);
+        OpenDDS::DCPS::make_rch<OpenDDS::DCPS::SporadicEvent>(TheServiceParticipant->event_dispatcher(),
+                                                              OpenDDS::DCPS::make_rch<GuidAddrSetEvent>(rchandle_from(this), &GuidAddrSet::process_rejected_address_expiration));
     }
     rejected_address_expiration_task_->schedule(rejected_address_expiration_queue_.front()->second - OpenDDS::DCPS::MonotonicTimePoint::now());
   }
@@ -286,8 +286,8 @@ void GuidAddrSet::schedule_deactivation()
   } else {
     if (!deactivation_task_) {
       deactivation_task_ =
-        OpenDDS::DCPS::make_rch<GuidAddrSetSporadicTask>(TheServiceParticipant->time_source(), reactor_task_,
-                                                         rchandle_from(this), &GuidAddrSet::process_deactivation);
+        OpenDDS::DCPS::make_rch<OpenDDS::DCPS::SporadicEvent>(TheServiceParticipant->event_dispatcher(),
+                                                              OpenDDS::DCPS::make_rch<GuidAddrSetEvent>(rchandle_from(this), &GuidAddrSet::process_deactivation));
     }
     deactivation_task_->schedule(deactivation_guid_queue_.front().first - OpenDDS::DCPS::MonotonicTimePoint::now());
   }
@@ -328,8 +328,8 @@ void GuidAddrSet::schedule_expiration()
   } else {
     if (!expiration_task_) {
       expiration_task_ =
-        OpenDDS::DCPS::make_rch<GuidAddrSetSporadicTask>(TheServiceParticipant->time_source(), reactor_task_,
-                                                         rchandle_from(this), &GuidAddrSet::process_expiration);
+        OpenDDS::DCPS::make_rch<OpenDDS::DCPS::SporadicEvent>(TheServiceParticipant->event_dispatcher(),
+                                                              OpenDDS::DCPS::make_rch<GuidAddrSetEvent>(rchandle_from(this), &GuidAddrSet::process_expiration));
     }
     expiration_task_->schedule(expiration_guid_addr_queue_.front().first - OpenDDS::DCPS::MonotonicTimePoint::now());
   }
@@ -542,10 +542,9 @@ void GuidAddrSet::admit_state(AdmitState as, const DDS::Time_t& now)
 void GuidAddrSet::drain_state(DrainState ds, const DDS::Time_t& now)
 {
   if (!drain_task_) {
-    drain_task_ = OpenDDS::DCPS::make_rch<GuidAddrSetSporadicTask>(TheServiceParticipant->time_source(),
-                                                                   reactor_task_,
-                                                                   rchandle_from(this),
-                                                                   &GuidAddrSet::process_drain_state);
+    drain_task_ =
+      OpenDDS::DCPS::make_rch<OpenDDS::DCPS::SporadicEvent>(TheServiceParticipant->event_dispatcher(),
+                                                            OpenDDS::DCPS::make_rch<GuidAddrSetEvent>(rchandle_from(this), &GuidAddrSet::process_drain_state));
   }
 
   if (drain_state_ != ds) {
