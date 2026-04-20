@@ -333,13 +333,7 @@ CORBA::ULong VerticalHandler::process_message(const ACE_INET_Addr& remote_addres
     GuidAddrSet::Proxy proxy(guid_addr_set_);
     OpenDDS::DCPS::ThreadStatusManager::Event evLocked(statusManager, READ_MASK | SIGNAL_MASK, handle_as_int);
 
-    // Early admission check (Bug #3 fix): when the relay is not admitting, skip
-    // RTPS messages from unadmitted participants before record_activity() is called.
-    // Without this check, record_activity() creates or refreshes an entry in
-    // guid_addr_set_map_ even though ignore_rtps() will immediately defer the
-    // message.  Retrying clients keep that expiration alive forever, and
-    // check_participants_limit() counts those ghost entries toward the 8000
-    // high-water mark, causing a permanent NOT_ADMITTING deadlock.
+    // Early admission check when the relay is not admitting, skip
     if (!from_application_participant && !proxy.admitting()) {
       const auto pos = proxy.find(src_guid);
       if (pos == proxy.end() || !pos->second.allow_rtps) {
