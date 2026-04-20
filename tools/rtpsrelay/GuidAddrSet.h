@@ -286,12 +286,13 @@ public:
       gas_.deny(guid);
     }
 
-    // Increment the admission deferral counter.  Called when an RTPS message
+    // Increment the ghost entry skipped counter.  Called when an RTPS message
     // from an unadmitted participant is dropped early (before record_activity)
-    // to prevent ghost entries in guid_addr_set_map_.
+    // to prevent ghost entries in guid_addr_set_map_.  Kept separate from
+    // admission_deferral_count so the two paths can be monitored independently.
     void admission_skipped(const OpenDDS::DCPS::MonotonicTimePoint& now)
     {
-      gas_.relay_stats_reporter_.admission_deferral_count(now);
+      gas_.relay_stats_reporter_.ghost_entry_skipped_count(now);
     }
 
   private:
