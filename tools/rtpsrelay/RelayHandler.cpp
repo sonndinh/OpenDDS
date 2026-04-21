@@ -333,10 +333,9 @@ CORBA::ULong VerticalHandler::process_message(const ACE_INET_Addr& remote_addres
     GuidAddrSet::Proxy proxy(guid_addr_set_);
     OpenDDS::DCPS::ThreadStatusManager::Event evLocked(statusManager, READ_MASK | SIGNAL_MASK, handle_as_int);
 
-    // Early admission check when the relay is not admitting, skip
     if (!from_application_participant && !proxy.admitting()) {
       const auto pos = proxy.find(src_guid);
-      if (pos == proxy.end() || !pos->second.allow_rtps) {
+      if (pos != proxy.end() && !pos->second.allow_rtps) {
         if (config_.log_activity()) {
           ACE_DEBUG((LM_INFO, "(%P|%t) INFO: VerticalHandler::process_message %C skipped unadmitted participant %C from %C - relay not admitting\n",
                      name_.c_str(), guid_to_string(src_guid).c_str(),
