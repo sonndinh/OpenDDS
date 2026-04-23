@@ -371,11 +371,8 @@ CORBA::ULong VerticalHandler::process_message(const ACE_INET_Addr& remote_addres
       if (to_partitions.empty()) {
         const auto pos = proxy.find(src_guid);
         if (pos != proxy.end()) {
-          const IdentityInfo& id_info = pos->second.identity_info;
-          const auto key = id_info.get_cert_id();
-          if (!key.empty()) {
-            guid_partition_table_.lookup_cert_partitions_cache(to_partitions, key);
-          }
+          const auto key = pos->second.identity_info.cert_id();
+          guid_partition_table_.lookup_cert_partitions_cache(to_partitions, key);
         }
         if (!to_partitions.empty()) {
           async_discovery = true;
@@ -875,6 +872,8 @@ namespace {
       return identity;
     }
 
+    bool get_cert_sn = false, get_ca_sn = false;
+
     while (message_parser.parseSubmessageHeader()) {
       const auto submessage_header = message_parser.submessageHeader();
       if (submessage_header.submessageId == OpenDDS::RTPS::DATA) {
@@ -934,11 +933,13 @@ namespace {
                 for (CORBA::ULong j = 0; j != idt.properties.length(); ++j) {
                   const DDS::Property_t& prop = idt.properties[j];
                   if (std::strcmp(OpenDDS::Security::dds_cert_sn, prop.name.in()) == 0) {
-                    identity.cert_sn = prop.value.in();
+                    identity.cert_sn(prop.value.in());
+                    get_cert_sn = true;
                   } else if (std::strcmp(OpenDDS::Security::dds_ca_sn, prop.name.in()) == 0) {
-                    identity.ca_sn = prop.value.in();
+                    identity.ca_sn(prop.value.in());
+                    get_ca_sn = true;
                   }
-                  if (identity.populated()) {
+                  if (get_cert_sn && get_ca_sn) {
                     return identity;
                   }
                 }
@@ -970,11 +971,11 @@ void SpdpHandler::cache_message(GuidAddrSet::Proxy& proxy,
         pos->second.identity_info = extract_identity(*msg, src_guid);
         pos->second.identity_info.match_cert_id(config_.certificate_id_pattern());
         if (config_.log_activity()) {
-          ACE_DEBUG((LM_INFO, "(%P|%t) INFO: SpdpHandler::cache_message %C got first SPDP %C into session dds.cert.sn %C dds.ca.sn %C\n",
+          ACE_DEBUG((LM_INFO, "(%P|%t) INFO: SpdpHandler::cache_message %C got first SPDP %C into session dds.cert.sn '%C' dds.ca.sn '%C'\n",
                      guid_to_string(src_guid).c_str(),
                      pos->second.get_session_time(now).sec_str().c_str(),
-                     pos->second.identity_info.cert_sn.c_str(),
-                     pos->second.identity_info.ca_sn.c_str()));
+                     pos->second.identity_info.cert_sn().c_str(),
+                     pos->second.identity_info.ca_sn().c_str()));
         }
         pos->second.spdp_message = msg;
         pos->second.seen_spdp_message = true;
