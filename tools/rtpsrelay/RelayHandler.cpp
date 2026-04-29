@@ -460,9 +460,14 @@ CORBA::ULong VerticalHandler::process_message(const ACE_INET_Addr& remote_addres
                        name_.c_str(), guid_to_string(src_guid).c_str(),
                        OpenDDS::DCPS::LogAddr(remote_address).c_str()));
           }
-          proxy.admission_skipped(now);
-          stats_reporter_.ignored_message(msg_len, now, type);
-          return 0;
+          // Skip record_activity to avoid refreshing the entry for unadmitted
+          // participants, but still send any STUN response (e.g. BINDING reply)
+          // so the client can complete ICE/NAT hole-punching while queued.
+          if (response_needed) {
+            send(remote_address, std::move(response), now);
+            ++messages_sent;
+          }
+          return messages_sent;
         }
       }
 
