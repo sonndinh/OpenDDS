@@ -451,6 +451,21 @@ CORBA::ULong VerticalHandler::process_message(const ACE_INET_Addr& remote_addres
       const bool from_application_participant =
         (remote_address == application_participant_addr_) &&
         (src_guid == config_.application_participant_guid());
+
+      if (!from_application_participant && !proxy.admitting()) {
+        const auto pos = proxy.find(src_guid);
+        if (pos != proxy.end() && !pos->second.allow_rtps) {
+          if (config_.log_activity()) {
+            ACE_DEBUG((LM_INFO, "(%P|%t) INFO: VerticalHandler::process_message %C skipped unadmitted participant %C from %C - relay not admitting (STUN)\n",
+                       name_.c_str(), guid_to_string(src_guid).c_str(),
+                       OpenDDS::DCPS::LogAddr(remote_address).c_str()));
+          }
+          proxy.admission_skipped(now);
+          stats_reporter_.ignored_message(msg_len, now, type);
+          return 0;
+        }
+      }
+
       bool allow_stun_responses = true;
 
       record_activity(proxy, addr_port, now, src_guid, from_application_participant, &allow_stun_responses);
