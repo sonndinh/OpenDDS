@@ -1254,6 +1254,14 @@ Service_Participant::set_repo_domain(const DDS::DomainId_t domain,
 void
 Service_Participant::repository_lost(Discovery::RepoKey key)
 {
+  if (this->discoveryMap_.empty()) {
+    ACE_DEBUG((LM_WARNING,
+               ACE_TEXT("(%P|%t) WARNING: Service_Participant::repository_lost: ")
+               ACE_TEXT("no repositories are available to replace %C.\n"),
+               key.c_str()));
+    return;
+  }
+
   // Find the lost repository.
   RepoKeyDiscoveryMap::iterator initialLocation = this->discoveryMap_.find(key);
   RepoKeyDiscoveryMap::iterator current         = initialLocation;
@@ -1329,12 +1337,20 @@ Service_Participant::repository_lost(Discovery::RepoKey key)
       return;
 
     } else {
-      ACE_DEBUG((LM_WARNING,
-                 ACE_TEXT("(%P|%t) WARNING: Service_Participant::repository_lost: ")
-                 ACE_TEXT("repository %C was not available to replace %C, ")
-                 ACE_TEXT("looking for another.\n"),
-                 current->first.c_str(),
-                 key.c_str()));
+      if (current != this->discoveryMap_.end()) {
+        ACE_DEBUG((LM_WARNING,
+                   ACE_TEXT("(%P|%t) WARNING: Service_Participant::repository_lost: ")
+                   ACE_TEXT("repository %C was not available to replace %C, ")
+                   ACE_TEXT("looking for another.\n"),
+                   current->first.c_str(),
+                   key.c_str()));
+      } else {
+        ACE_DEBUG((LM_WARNING,
+                   ACE_TEXT("(%P|%t) WARNING: Service_Participant::repository_lost: ")
+                   ACE_TEXT("no repositories are currently available to replace %C, ")
+                   ACE_TEXT("looking for another.\n"),
+                   key.c_str()));
+      }
     }
 
     // Move to the next candidate repository.
@@ -2279,7 +2295,11 @@ Service_Participant::get_type_information(DDS::DomainParticipant_ptr participant
 DDS::ReturnCode_t Service_Participant::get_dynamic_type(DDS::DynamicType_var& type,
   DDS::DomainParticipant_ptr participant, const DDS::BuiltinTopicKey_t& key) const
 {
-  return dynamic_cast<DomainParticipantImpl*>(participant)->get_dynamic_type(type, key);
+  DomainParticipantImpl* participant_servant = dynamic_cast<DomainParticipantImpl*>(participant);
+  if (!participant_servant) {
+    return DDS::RETCODE_BAD_PARAMETER;
+  }
+  return participant_servant->get_dynamic_type(type, key);
 }
 #endif
 
