@@ -143,7 +143,7 @@ protected:
                                const OpenDDS::DCPS::Lockable_Message_Block_Ptr& msg,
                                MessageType& type) override;
 
-void record_activity(GuidAddrSet::Proxy& proxy,
+bool record_activity(GuidAddrSet::Proxy& proxy,
                      const AddrPort& remote_address,
                      const OpenDDS::DCPS::MonotonicTimePoint& now,
                      const OpenDDS::DCPS::GUID_t& src_guid,
