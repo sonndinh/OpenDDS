@@ -485,7 +485,7 @@ VerticalHandler::record_activity(GuidAddrSet::Proxy& proxy,
                    OpenDDS::DCPS::LogAddr(remote_address.addr).c_str()));
       }
       if (allow_stun_responses) {
-        *allow_stun_responses = pos->second.allow_stun_responses;
+        *allow_stun_responses = proxy.compute_allow_stun_responses(pos, from_application_participant);
       }
       return false;
     }
