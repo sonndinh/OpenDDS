@@ -224,7 +224,7 @@ module RtpsRelay {
 
   enum Action {
     ACTION_ADD,
-    ACTION_REMOVE
+    ACTION_REMOVE // Not implemented yet
   };
 
   const string RELAY_DENIED_PARTITIONS_TOPIC_NAME = "Relay Denied Partitions";
@@ -233,7 +233,7 @@ module RtpsRelay {
   @autoid(HASH)
   struct RelayDeniedPartitions {
     StringSequence partitions;
-    Action add_or_remove; // Not implemented remove yet
+    Action add_or_remove;
   };
 
   struct AsyncDiscoveryCacheEntry {
@@ -250,7 +250,6 @@ module RtpsRelay {
   struct AsyncDiscoveryCacheUpdate {
     @key string relay_id;
     AsyncDiscoveryCacheEntrySeq entries;
-    Action add_or_remove;
   };
 };
 
