@@ -276,11 +276,11 @@ GuidPartitionTable::update_cert_partitions_cache(const std::string& key, const S
   }
 }
 
-void
+bool
 GuidPartitionTable::lookup_cert_partitions_cache(StringSet& partitions, const std::string& key, const OpenDDS::DCPS::GUID_t& guid)
 {
   if (key.empty() || !config_.async_discovery_enabled()) {
-    return;
+    return false;
   }
 
   auto found = local_async_disc_cache_.lookup(partitions, key);
@@ -300,6 +300,7 @@ GuidPartitionTable::lookup_cert_partitions_cache(StringSet& partitions, const st
                  guid_to_string(guid).c_str(), key.c_str()));
     }
   }
+  return found;
 }
 
 void GuidPartitionTable::cleanup_local_async_disc_cache(const OpenDDS::DCPS::MonotonicTimePoint& now)

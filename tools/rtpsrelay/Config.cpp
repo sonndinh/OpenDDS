@@ -240,6 +240,9 @@ void Config::set_defaults()
   cached_async_discovery_remote_cache_timeout_.default_if_empty([&](const TimeDuration& default_val) {
     TheServiceParticipant->config_store()->set_duration(RTPS_RELAY_ASYNC_DISCOVERY_REMOTE_CACHE_TIMEOUT, default_val.to_dds_duration());
   });
+  cached_async_discovery_cache_only_.default_if_empty([&](bool default_val) {
+    TheServiceParticipant->config_store()->set_boolean(RTPS_RELAY_ASYNC_DISCOVERY_CACHE_ONLY, default_val);
+  });
 }
 
 void Config::on_data_available(InternalDataReader_rch reader)
@@ -308,6 +311,8 @@ void Config::on_data_available(InternalDataReader_rch reader)
         cached_synchronize_async_discovery_cache_.set(pair.value());
       } else if (pair.key() == RTPS_RELAY_ASYNC_DISCOVERY_REMOTE_CACHE_TIMEOUT) {
         cached_async_discovery_remote_cache_timeout_.set(pair.value());
+      } else if (pair.key() == RTPS_RELAY_ASYNC_DISCOVERY_CACHE_ONLY) {
+        cached_async_discovery_cache_only_.set(pair.value());
       }
     }
   }

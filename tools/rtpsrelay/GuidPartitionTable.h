@@ -82,7 +82,7 @@ public:
 
   void update_cert_partitions_cache(const std::string& key, const StringSet& partitions, const OpenDDS::DCPS::GUID_t& guid);
 
-  void lookup_cert_partitions_cache(StringSet& partitions, const std::string& key, const OpenDDS::DCPS::GUID_t& guid);
+  bool lookup_cert_partitions_cache(StringSet& partitions, const std::string& key, const OpenDDS::DCPS::GUID_t& guid);
 
   void handle_async_disc_cache_update(const AsyncDiscoveryCacheEntrySeq& entries,
     const std::string& from_relay, const OpenDDS::DCPS::MonotonicTimePoint& now);

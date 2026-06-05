@@ -357,7 +357,33 @@ CORBA::ULong VerticalHandler::process_message(const ACE_INET_Addr& remote_addres
     bool send_to_application_participant = false;
     if (do_normal_processing(proxy, remote_address, src_guid, to, admitted, send_to_application_participant, msg, now, sent)) {
       StringSet to_partitions;
-      guid_partition_table_.lookup(to_partitions, src_guid);
+
+      // TODO: POC for supporting skipping the main routing table look -- the purpose is to test that routing works correctly
+      // when only the async discovery cache is used.
+      // May skip the main routing table lookup only when the cache has entry for this guid.
+      // For example, run_async_disc_test.pl populates the cache for publisher with the first publisher connection.
+      // When the publisher reconnects, the relay can skip the GuidPartitionTable lookup and use the cache for the publisher.
+      // The relay still uses the main routing table for the subscriber since it doesn't have entry for the subcriber.
+      std::string cache_key;
+      StringSet cached_partitions;
+      bool may_skip_main_routing_table = false;
+      if (config_.async_discovery_enabled()) {
+        const auto pos = proxy.find(src_guid);
+        if (pos != proxy.end()) {
+          cache_key = pos->second.identity_info.cert_id();
+          may_skip_main_routing_table = guid_partition_table_.lookup_cert_partitions_cache(cached_partitions, cache_key, src_guid);
+        }
+      }
+
+      if (!config_.async_discovery_cache_only() || !may_skip_main_routing_table) {
+        guid_partition_table_.lookup(to_partitions, src_guid);
+        ACE_DEBUG((LM_DEBUG, "(%P|%t) VerticalHandler::process_message: Looked up guid_partition_table_ for GUID %C\n",
+          OpenDDS::DCPS::LogGuid(src_guid).c_str()));
+      } else {
+        ACE_DEBUG((LM_DEBUG, "(%P|%t) VerticalHandler::process_message: Ignore guid_partition_table_ lookup for GUID %C\n",
+          OpenDDS::DCPS::LogGuid(src_guid).c_str()));
+      }
+
       // Denial decision is based only on the "ground truth" routing table and
       // not the "heuristic" partition cache (looked up below) that may contain
       // stale partitions for this guid and may cause it to be denied incorrectly.
@@ -372,6 +398,8 @@ CORBA::ULong VerticalHandler::process_message(const ACE_INET_Addr& remote_addres
       bool async_discovery = false;
       if (config_.async_discovery_enabled()) {
         if (to_partitions.empty()) {
+          ACE_DEBUG((LM_DEBUG, "(%P|%t) VerticalHandler::process_message: Routing info for GUID %C not found in GuidPartitionTable. Checking async discovery cache.\n",
+            OpenDDS::DCPS::LogGuid(src_guid).c_str()));
           const auto pos = proxy.find(src_guid);
           if (pos != proxy.end()) {
             const auto ca_sn = pos->second.identity_info.ca_sn();
@@ -385,6 +413,8 @@ CORBA::ULong VerticalHandler::process_message(const ACE_INET_Addr& remote_addres
           }
           if (!to_partitions.empty()) {
             async_discovery = true;
+            ACE_DEBUG((LM_DEBUG, "(%P|%t) VerticalHandler::process_message: Found routing info for GUID %C in async discovery cache. Initiating async discovery.\n",
+              OpenDDS::DCPS::LogGuid(src_guid).c_str()));
           }
         }
       }

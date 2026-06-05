@@ -82,6 +82,15 @@ namespace {
   const unsigned short DEFAULT_VERTICAL = 7400;
   const unsigned short DEFAULT_META = 8080;
 
+  // TODO: RtpsRelayControl sends config changes to the relay which are written to the config store.
+  // The config store then notifies its readers, including the one here and the Config object.
+  // The reader here writes RelayConfigStatus back to the RtpsRelayControl to confirm the changes.
+  // But the other reader such as the Config object may not receive the config updates yet.
+  // Consequently, other objects using the Config object may not see the config updates.
+  // It would be better to use a single place for config updates, possibly the Config object,
+  // from which other objects can get the updated config values.
+  // The Config object can also be the one writing RelayConfigStatus back to the RtpsRelayControl so that
+  // when the RtpsRelayControl receives the status, we know the Config object already has those updates.
   struct InternalConfigListener : OpenDDS::DCPS::ConfigListener {
     InternalConfigListener(const RelayConfigDataWriter_var& writer, const std::string& id)
       : InternalDataReaderListener{TheServiceParticipant->job_queue()}
@@ -1010,7 +1019,7 @@ int run(int argc, ACE_TCHAR* argv[])
     make_rch<InternalConfigListener>(relay_config_status_data_writer, config.relay_id());
   const auto internal_config_reader =
     make_rch<OpenDDS::DCPS::ConfigReader>(TheServiceParticipant->config_store()->datareader_qos(),
-                                                         internal_config_listener);
+                                          internal_config_listener);
   TheServiceParticipant->config_topic()->connect(internal_config_reader);
 
   RelayStatusReporter relay_status_reporter(config, *guid_addr_set, relay_publisher, reactor, relay_statistics_reporter);
