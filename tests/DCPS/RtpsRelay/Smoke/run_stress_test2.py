@@ -127,7 +127,25 @@ class ProcMan:
         nick, proc = self.procs[pid]
         del self.procs[pid]
         log(sig.name, nick, pid, proc.args)
-        os.killpg(os.getpgid(pid), sig)
+        try:
+            os.killpg(os.getpgid(pid), sig)
+        except ProcessLookupError:
+            # Process already exited between scheduling and signal delivery.
+            log('ALREADY_EXITED', nick, pid, proc.args)
+
+    def wait_for_exit(self, pid, timeout):
+        if pid not in self.procs:
+            return True
+
+        nick, proc = self.procs[pid]
+        try:
+            rc = proc.wait(timeout=timeout)
+            del self.procs[pid]
+            log('EXIT', nick, pid, rc, proc.args)
+            return True
+        except subprocess.TimeoutExpired:
+            log('WAIT_TIMEOUT', nick, pid, timeout)
+            return False
 
     def kill(self, pid):
         self.signal_group(pid, signal.SIGKILL)
@@ -137,8 +155,31 @@ class ProcMan:
 
     def int_all(self):
         print('INT ALL START')
+        relay_pids = []
+        other_pids = []
+        for pid, (nick, _) in list(self.procs.items()):
+            if nick.startswith('relay-'):
+                relay_pids.append(pid)
+            else:
+                other_pids.append(pid)
+
+        for pid in other_pids:
+            if pid in self.procs:
+                self.int(pid)
+
+        # Let mutrace-wrapped relays terminate naturally so mutrace can emit summaries.
+        for pid in relay_pids:
+            self.wait_for_exit(pid, timeout=20)
+
+        for pid in relay_pids:
+            if pid in self.procs:
+                self.int(pid)
+
         for pid in list(self.procs.keys()):
-            self.int(pid)
+            self.wait_for_exit(pid, timeout=2)
+
+        for pid in list(self.procs.keys()):
+            self.kill(pid)
         print('INT ALL END')
 
 
