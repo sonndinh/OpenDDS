@@ -283,7 +283,7 @@ Spdp::Spdp(DDS::DomainId_t domain,
   , total_reader_pending_(0)
   , total_reader_associated_(0)
 {
-  ACE_GUARD(ACE_Thread_Mutex, g, lock_);
+  ACE_GUARD(DiscoveryMutex, g, lock_);
 
   init(domain, guid, qos, tls);
 
@@ -355,7 +355,7 @@ Spdp::Spdp(DDS::DomainId_t domain,
   , total_reader_pending_(0)
   , total_reader_associated_(0)
 {
-  ACE_GUARD(ACE_Thread_Mutex, g, lock_);
+  ACE_GUARD(DiscoveryMutex, g, lock_);
 
   init(domain, guid_, qos, tls);
 
@@ -419,7 +419,7 @@ void
 Spdp::shutdown()
 {
   {
-    ACE_GUARD(ACE_Thread_Mutex, g, lock_);
+    ACE_GUARD(DiscoveryMutex, g, lock_);
     shutdown_flag_ = true;
     if (DCPS::DCPS_debug_level > 3) {
       ACE_DEBUG((LM_INFO,
@@ -470,7 +470,7 @@ Spdp::shutdown()
   // release lock for reset of event handler, which may delete transport
   tport_.reset();
   {
-    ACE_GUARD(ACE_Thread_Mutex, g, lock_);
+    ACE_GUARD(DiscoveryMutex, g, lock_);
     DCPS::ThreadStatusManager& thread_status_manager = TheServiceParticipant->get_thread_status_manager();
     while (!eh_shutdown_) {
       shutdown_cond_.wait(thread_status_manager);
@@ -776,7 +776,7 @@ Spdp::handle_participant_data(DCPS::MessageId id,
 
   const GUID_t guid = DCPS::make_part_guid(pdata.participantProxy.guidPrefix);
 
-  ACE_GUARD(ACE_Thread_Mutex, g, lock_);
+  ACE_GUARD(DiscoveryMutex, g, lock_);
 
   if (!initialized_flag_ || shutdown_flag_) {
     return;
@@ -1118,7 +1118,7 @@ Spdp::data_received(const DataSubmessage& data,
                     const ParameterList& plist,
                     const DCPS::NetworkAddress& from)
 {
-  ACE_Guard<ACE_Thread_Mutex> guard(lock_);
+  ACE_Guard<DiscoveryMutex> guard(lock_);
   if (!initialized_flag_ || shutdown_flag_) {
     return;
   }
@@ -1233,7 +1233,7 @@ Spdp::handle_auth_request(const DDS::Security::ParticipantStatelessMessage& msg)
     return;
   }
 
-  ACE_GUARD(ACE_Thread_Mutex, g, lock_);
+  ACE_GUARD(DiscoveryMutex, g, lock_);
 
   if (!initialized_flag_ || shutdown_flag_) {
     return;
@@ -1566,7 +1566,7 @@ Spdp::handle_handshake_message(const DDS::Security::ParticipantStatelessMessage&
     return;
   }
 
-  ACE_GUARD(ACE_Thread_Mutex, g, lock_);
+  ACE_GUARD(DiscoveryMutex, g, lock_);
 
   if (!initialized_flag_ || shutdown_flag_ ) {
     return;
@@ -1842,7 +1842,7 @@ Spdp::handle_handshake_message(const DDS::Security::ParticipantStatelessMessage&
 void
 Spdp::process_handshake_deadlines(const DCPS::MonotonicTimePoint& now)
 {
-  ACE_GUARD(ACE_Thread_Mutex, g, lock_);
+  ACE_GUARD(DiscoveryMutex, g, lock_);
 
   if (!initialized_flag_ || shutdown_flag_) {
     return;
@@ -1894,7 +1894,7 @@ Spdp::process_handshake_deadlines(const DCPS::MonotonicTimePoint& now)
 void
 Spdp::process_handshake_resends(const DCPS::MonotonicTimePoint& now)
 {
-  ACE_GUARD(ACE_Thread_Mutex, g, lock_);
+  ACE_GUARD(DiscoveryMutex, g, lock_);
 
   if (!initialized_flag_ || shutdown_flag_) {
     return;
@@ -1981,7 +1981,7 @@ Spdp::handle_participant_crypto_tokens(const DDS::Security::ParticipantVolatileM
     return false;
   }
 
-  ACE_GUARD_RETURN(ACE_Thread_Mutex, g, lock_, false);
+  ACE_GUARD_RETURN(DiscoveryMutex, g, lock_, false);
 
   if (crypto_handle_ == DDS::HANDLE_NIL) {
     // not configured for RTPS Protection, therefore doesn't support participant crypto tokens
@@ -2618,7 +2618,7 @@ Spdp::SpdpTransport::~SpdpTransport()
   DCPS::RcHandle<Spdp> outer = outer_.lock();
 
   if (outer) {
-    ACE_GUARD(ACE_Thread_Mutex, g, outer->lock_);
+    ACE_GUARD(DiscoveryMutex, g, outer->lock_);
     try {
       dispose_unregister();
     } catch (const CORBA::BAD_PARAM&) {}
@@ -2663,7 +2663,7 @@ void Spdp::SpdpTransport::register_handlers(DCPS::ReactorWrapper& reactor_wrappe
   if (!outer) {
     return;
   }
-  ACE_GUARD(ACE_Thread_Mutex, g, outer->lock_);
+  ACE_GUARD(DiscoveryMutex, g, outer->lock_);
 
   if (outer->shutdown_flag_) {
     return;
@@ -2826,7 +2826,7 @@ Spdp::SpdpTransport::write(WriteFlags flags)
   DCPS::RcHandle<Spdp> outer = outer_.lock();
   if (!outer) return;
 
-  ACE_GUARD(ACE_Thread_Mutex, g, outer->lock_);
+  ACE_GUARD(DiscoveryMutex, g, outer->lock_);
   write_i(flags);
 }
 
@@ -2958,7 +2958,7 @@ void
 Spdp::append_transport_statistics(DCPS::TransportStatisticsSequence& seq)
 {
   {
-    ACE_GUARD(ACE_Thread_Mutex, g, lock_);
+    ACE_GUARD(DiscoveryMutex, g, lock_);
     sedp_->core().append_transport_statistics(seq);
   }
   sedp_->append_transport_statistics(seq);
@@ -3512,7 +3512,7 @@ Spdp::SendStun::execute()
   DCPS::RcHandle<Spdp> outer = tport->outer_.lock();
   if (!outer) return;
 
-  ACE_GUARD(ACE_Thread_Mutex, g, outer->lock_);
+  ACE_GUARD(DiscoveryMutex, g, outer->lock_);
   tport->wbuff_.reset();
   Serializer serializer(&tport->wbuff_, STUN::encoding);
   const_cast<STUN::Message&>(message_).block(&tport->wbuff_);
@@ -3566,7 +3566,7 @@ Spdp::SpdpTransport::ice_connect(const ICE::GuidSetType& guids, const ACE_INET_A
 void
 Spdp::IceConnect::execute()
 {
-  ACE_GUARD(ACE_Thread_Mutex, g, spdp_->lock_);
+  ACE_GUARD(DiscoveryMutex, g, spdp_->lock_);
   for (ICE::GuidSetType::const_iterator pos = guids_.begin(), limit = guids_.end(); pos != limit; ++pos) {
     DiscoveredParticipantIter iter = spdp_->participants_.find(pos->remote);
     if (iter != spdp_->participants_.end()) {
@@ -3726,7 +3726,7 @@ void Spdp::SpdpTransport::on_data_available(DCPS::RcHandle<DCPS::InternalDataRea
   DCPS::RcHandle<Spdp> outer = outer_.lock();
   if (!outer) return;
 
-  ACE_GUARD(ACE_Thread_Mutex, g, outer->lock_);
+  ACE_GUARD(DiscoveryMutex, g, outer->lock_);
   if (outer->shutdown_flag_) {
     return;
   }
@@ -3739,7 +3739,7 @@ void Spdp::SpdpTransport::handle_network_interface_updates()
   DCPS::RcHandle<Spdp> outer = outer_.lock();
   if (!outer) return;
 
-  ACE_GUARD(ACE_Thread_Mutex, g, outer->lock_);
+  ACE_GUARD(DiscoveryMutex, g, outer->lock_);
   if (outer->shutdown_flag_) {
     return;
   }
@@ -3772,7 +3772,7 @@ void Spdp::SpdpTransport::on_data_available(DCPS::ConfigReader_rch reader)
   DCPS::RcHandle<Spdp> outer = outer_.lock();
   if (!outer) return;
 
-  ACE_GUARD(ACE_Thread_Mutex, g, outer->lock_);
+  ACE_GUARD(DiscoveryMutex, g, outer->lock_);
   if (outer->shutdown_flag_) {
     return;
   }
@@ -4026,7 +4026,7 @@ bool Spdp::participant_uses_rtps_duration_fraction(const DCPS::GUID_t& guid) con
   // here does not depend on lock_ -- lock_ only guards participants_, which
   // participant_uses_rtps_duration_fraction_i() consults.
   const bool local_default = (participant_flags_ & PFLAGS_RTPS_DURATION_FRACTION) != 0;
-  ACE_GUARD_RETURN(ACE_Thread_Mutex, g, lock_, local_default);
+  ACE_GUARD_RETURN(DiscoveryMutex, g, lock_, local_default);
   return participant_uses_rtps_duration_fraction_i(guid);
 }
 
@@ -4073,7 +4073,7 @@ Spdp::update_lease_expiration_i(DiscoveredParticipantIter iter,
 void
 Spdp::process_lease_expirations(const MonotonicTimePoint& now)
 {
-  ACE_GUARD (ACE_Thread_Mutex, g, lock_);
+  ACE_GUARD (DiscoveryMutex, g, lock_);
 
   // Process one at a time to keep the thread responsive.
   const TimeQueue::iterator pos = lease_expirations_.begin();
@@ -4174,7 +4174,7 @@ Spdp::lookup_participant_permissions(const DCPS::GUID_t& id) const
 {
   DDS::Security::PermissionsHandle result = DDS::HANDLE_NIL;
 
-  ACE_Guard<ACE_Thread_Mutex> g(lock_, false);
+  ACE_Guard<DiscoveryMutex> g(lock_, false);
   DiscoveredParticipantConstIter pi = participants_.find(id);
   if (pi != participants_.end()) {
     result = pi->second.permissions_handle_;
@@ -4184,7 +4184,7 @@ Spdp::lookup_participant_permissions(const DCPS::GUID_t& id) const
 
 AuthState Spdp::lookup_participant_auth_state(const GUID_t& id) const
 {
-  ACE_Guard<ACE_Thread_Mutex> g(lock_, false);
+  ACE_Guard<DiscoveryMutex> g(lock_, false);
   DiscoveredParticipantConstIter pi = participants_.find(id);
   if (pi != participants_.end()) {
     return pi->second.auth_state_;
@@ -4584,7 +4584,7 @@ void Spdp::SpdpTransport::send_directed()
   DCPS::RcHandle<Spdp> outer = outer_.lock();
   if (!outer) return;
 
-  ACE_GUARD(ACE_Thread_Mutex, g, outer->lock_);
+  ACE_GUARD(DiscoveryMutex, g, outer->lock_);
 
   while (!directed_guids_.empty()) {
     const DCPS::GUID_t id = directed_guids_.front();
@@ -4622,7 +4622,7 @@ void Spdp::SpdpTransport::thread_status_task()
                "(%P|%t) Spdp::SpdpTransport::thread_status_task(): Updating internal thread status BIT.\n"));
   }
 
-  ACE_GUARD(ACE_Thread_Mutex, g, outer->lock_);
+  ACE_GUARD(DiscoveryMutex, g, outer->lock_);
 
   typedef DCPS::ThreadStatusManager::List List;
   List running;
@@ -4719,7 +4719,7 @@ void Spdp::process_participant_ice(const ParameterList& plist,
   DCPS::WeakRcHandle<ICE::Endpoint> sedp_endpoint;
   DCPS::WeakRcHandle<ICE::Endpoint> spdp_endpoint;
   {
-    ACE_GUARD(ACE_Thread_Mutex, g, lock_);
+    ACE_GUARD(DiscoveryMutex, g, lock_);
     if (!initialized_flag_ || shutdown_flag_) {
       return;
     }
@@ -4763,7 +4763,7 @@ void Spdp::process_participant_ice(const ParameterList& plist,
     } else {
       ice_agent_->stop_ice(spdp_endpoint, guid_, guid);
 #ifndef DDS_HAS_MINIMUM_BIT
-      ACE_GUARD(ACE_Thread_Mutex, g, lock_);
+      ACE_GUARD(DiscoveryMutex, g, lock_);
       DiscoveredParticipantIter iter = participants_.find(guid);
       if (iter != participants_.end()) {
         enqueue_location_update_i(iter, DCPS::LOCATION_ICE, DCPS::NetworkAddress(), "stop ice");
@@ -4841,7 +4841,7 @@ DDS::ParticipantBuiltinTopicData Spdp::get_part_bit_data(bool secure) const
 VendorId_t Spdp::get_vendor_id(const GUID_t& guid) const
 {
   const VendorId_t unknown_vendor = {{ 0, 0 }};
-  ACE_GUARD_RETURN(ACE_Thread_Mutex, g, lock_, unknown_vendor);
+  ACE_GUARD_RETURN(DiscoveryMutex, g, lock_, unknown_vendor);
   return get_vendor_id_i(guid);
 }
 
@@ -4859,7 +4859,7 @@ void Spdp::get_vendor_id_and_duration_encoding(const GUID_t& guid,
                                                 VendorId_t& vendor_id,
                                                 bool& uses_rtps_duration_fraction) const
 {
-  ACE_GUARD(ACE_Thread_Mutex, g, lock_);
+  ACE_GUARD(DiscoveryMutex, g, lock_);
   vendor_id = get_vendor_id_i(guid);
   uses_rtps_duration_fraction = participant_uses_rtps_duration_fraction_i(guid);
 }
@@ -4872,7 +4872,7 @@ OPENDDS_SET(DDS::UInt32) Spdp::get_ignored_user_tags() const
 
 void Spdp::ignore_domain_participant(const GUID_t& ignoreId)
 {
-  ACE_GUARD(ACE_Thread_Mutex, g, lock_);
+  ACE_GUARD(DiscoveryMutex, g, lock_);
   endpoint_manager().ignore(ignoreId);
 
   DiscoveredParticipantIter iter = participants_.find(ignoreId);
@@ -4884,7 +4884,7 @@ void Spdp::ignore_domain_participant(const GUID_t& ignoreId)
 
 void Spdp::remove_domain_participant(const GUID_t& removeId)
 {
-  ACE_GUARD(ACE_Thread_Mutex, g, lock_);
+  ACE_GUARD(DiscoveryMutex, g, lock_);
 
   DiscoveredParticipantIter iter = participants_.find(removeId);
   if (iter != participants_.end()) {
@@ -4895,14 +4895,14 @@ void Spdp::remove_domain_participant(const GUID_t& removeId)
 
 bool Spdp::update_domain_participant_qos(const DDS::DomainParticipantQos& qos)
 {
-  ACE_GUARD_RETURN(ACE_Thread_Mutex, g, lock_, false);
+  ACE_GUARD_RETURN(DiscoveryMutex, g, lock_, false);
   qos_ = qos;
   return announce_domain_participant_qos();
 }
 
 bool Spdp::enable_flexible_types(const GUID_t& remoteParticipantId, const char* typeKey)
 {
-  ACE_GUARD_RETURN(ACE_Thread_Mutex, g, lock_, false);
+  ACE_GUARD_RETURN(DiscoveryMutex, g, lock_, false);
   const DiscoveredParticipantIter iter = participants_.find(remoteParticipantId);
   if (iter == participants_.end()) {
     flexible_types_pre_discovery_[remoteParticipantId] = typeKey;
@@ -4923,7 +4923,7 @@ DCPS::String Spdp::find_flexible_types_key_i(const GUID_t& remoteEndpointId)
 
 bool Spdp::has_domain_participant(const GUID_t& remote) const
 {
-  ACE_GUARD_RETURN(ACE_Thread_Mutex, g, lock_, false);
+  ACE_GUARD_RETURN(DiscoveryMutex, g, lock_, false);
   return has_discovered_participant(remote);
 }
 
@@ -4975,7 +4975,7 @@ void Spdp::fill_stats(DCPS::StatisticSeq& stats) const
 {
   using namespace OPENDDS_RTPS_UNITY_BUILD_ID;
   stats = stats_template_;
-  ACE_GUARD(ACE_Thread_Mutex, g, lock_);
+  ACE_GUARD(DiscoveryMutex, g, lock_);
   stats[Stats_Index_LeaseExpirations].value = lease_expirations_.size();
 #if OPENDDS_CONFIG_SECURITY
   stats[Stats_Index_HandshakeDeadlines].value = handshake_deadlines_.size();

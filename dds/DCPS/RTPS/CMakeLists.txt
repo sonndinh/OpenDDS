@@ -24,6 +24,7 @@ target_sources(OpenDDS_Rtps
   PUBLIC FILE_SET HEADERS BASE_DIRS "${OPENDDS_SOURCE_DIR}" FILES
     AssociationRecord.h
     DiscoveredEntities.h
+    DiscoveryMutex.h
     GuidGenerator.h
     ICE/AgentImpl.h
     ICE/Checklist.h

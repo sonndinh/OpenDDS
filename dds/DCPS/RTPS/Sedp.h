@@ -10,6 +10,7 @@
 
 #include "AssociationRecord.h"
 #include "DiscoveredEntities.h"
+#include "DiscoveryMutex.h"
 #include "LocalEntities.h"
 #include "MessageTypes.h"
 #include "MessageUtils.h"
@@ -311,7 +312,7 @@ class Sedp : public virtual DCPS::RcEventHandler {
 public:
   Sedp(const DCPS::GUID_t& participant_id,
        Spdp& owner,
-       ACE_Thread_Mutex& lock);
+       DiscoveryMutex& lock);
 
   ~Sedp();
 
@@ -1502,7 +1503,7 @@ protected:
 #endif
 
   Spdp& spdp_;
-  ACE_Thread_Mutex& lock_;
+  DiscoveryMutex& lock_;
   const GUID_t participant_id_;
   const CORBA::ULong participant_flags_;
   const ParameterListConverter::RtpsDurationEncoding local_duration_encoding_;

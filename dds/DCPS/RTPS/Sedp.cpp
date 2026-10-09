@@ -332,7 +332,7 @@ RtpsDiscoveryCore::RtpsDiscoveryCore(RcHandle<RtpsDiscoveryConfig> config,
   , transport_statistics_(transport_statistics_key)
 {}
 
-Sedp::Sedp(const GUID_t& participant_id, Spdp& owner, ACE_Thread_Mutex& lock)
+Sedp::Sedp(const GUID_t& participant_id, Spdp& owner, DiscoveryMutex& lock)
   : config_store_(make_rch<ConfigStoreImpl>(TheServiceParticipant->config_topic(), TheServiceParticipant->time_source()))
   , spdp_(owner)
   , lock_(lock)
@@ -1722,7 +1722,7 @@ Sedp::replay_durable_data_for(const DCPS::GUID_t& remote_sub_id)
 {
   DCPS::GuidConverter conv(remote_sub_id);
   ACE_DEBUG((LM_DEBUG, "Sedp::replay_durable_data_for %C\n", OPENDDS_STRING(conv).c_str()));
-  ACE_GUARD(ACE_Thread_Mutex, g, lock_);
+  ACE_GUARD(DiscoveryMutex, g, lock_);
   if (remote_sub_id.entityId == ENTITYID_SEDP_BUILTIN_PUBLICATIONS_READER) {
     write_durable_publication_data(remote_sub_id, false);
   } else if (remote_sub_id.entityId == ENTITYID_SEDP_BUILTIN_SUBSCRIPTIONS_READER) {
@@ -1924,7 +1924,7 @@ Sedp::remove_from_bit_i(const DiscoveredSubscription& sub)
 bool
 Sedp::update_topic_qos(const GUID_t& topicId, const DDS::TopicQos& qos)
 {
-  ACE_GUARD_RETURN(ACE_Thread_Mutex, g, lock_, false);
+  ACE_GUARD_RETURN(DiscoveryMutex, g, lock_, false);
   OPENDDS_MAP_CMP(GUID_t, OPENDDS_STRING, DCPS::GUID_tKeyLessThan)::iterator iter =
     topic_names_.find(topicId);
   if (iter == topic_names_.end()) {
@@ -1991,7 +1991,7 @@ Sedp::update_publication_qos(const GUID_t& publicationId,
                              const DDS::DataWriterQos& qos,
                              const DDS::PublisherQos& publisherQos)
 {
-  ACE_GUARD_RETURN(ACE_Thread_Mutex, g, lock_, false);
+  ACE_GUARD_RETURN(DiscoveryMutex, g, lock_, false);
   LocalPublicationIter iter = local_publications_.find(publicationId);
   if (iter != local_publications_.end()) {
     LocalPublication& pb = iter->second;
@@ -2043,7 +2043,7 @@ Sedp::update_subscription_qos(const GUID_t& subscriptionId,
                               const DDS::DataReaderQos& qos,
                               const DDS::SubscriberQos& subscriberQos)
 {
-  ACE_GUARD_RETURN(ACE_Thread_Mutex, g, lock_, false);
+  ACE_GUARD_RETURN(DiscoveryMutex, g, lock_, false);
   LocalSubscriptionIter iter = local_subscriptions_.find(subscriptionId);
   if (iter != local_subscriptions_.end()) {
     LocalSubscription& sb = iter->second;
@@ -2070,7 +2070,7 @@ bool
 Sedp::update_subscription_params(const GUID_t& subId,
                                  const DDS::StringSeq& params)
 {
-  ACE_GUARD_RETURN(ACE_Thread_Mutex, g, lock_, false);
+  ACE_GUARD_RETURN(DiscoveryMutex, g, lock_, false);
   const LocalSubscriptionIter iter = local_subscriptions_.find(subId);
   if (iter != local_subscriptions_.end()) {
     LocalSubscription& sb = iter->second;
@@ -2415,7 +2415,7 @@ Sedp::data_received(DCPS::MessageId message_id,
   const GUID_t& guid = wdata.writerProxy.remoteWriterGuid;
   const GUID_t guid_participant = make_part_guid(guid);
 
-  ACE_GUARD(ACE_Thread_Mutex, g, lock_);
+  ACE_GUARD(DiscoveryMutex, g, lock_);
 
   if (ignoring(guid)
       || ignoring(guid_participant)
@@ -2449,7 +2449,7 @@ void Sedp::data_received(DCPS::MessageId message_id,
   const GUID_t& guid = wrapper.data.writerProxy.remoteWriterGuid;
   const GUID_t guid_participant = make_part_guid(guid);
 
-  ACE_GUARD(ACE_Thread_Mutex, g, lock_);
+  ACE_GUARD(DiscoveryMutex, g, lock_);
 
   if (ignoring(guid)
       || ignoring(guid_participant)
@@ -2752,7 +2752,7 @@ Sedp::data_received(DCPS::MessageId message_id,
   const GUID_t& guid = rdata.readerProxy.remoteReaderGuid;
   const GUID_t part_guid = make_part_guid(guid);
 
-  ACE_GUARD(ACE_Thread_Mutex, g, lock_);
+  ACE_GUARD(DiscoveryMutex, g, lock_);
 
   if (ignoring(guid) || ignoring(part_guid)
       || ignoring(rdata.ddsSubscriptionData.topic_name)) {
@@ -2786,7 +2786,7 @@ void Sedp::data_received(DCPS::MessageId message_id,
   GUID_t guid_participant = guid;
   guid_participant.entityId = ENTITYID_PARTICIPANT;
 
-  ACE_GUARD(ACE_Thread_Mutex, g, lock_);
+  ACE_GUARD(DiscoveryMutex, g, lock_);
 
   if (ignoring(guid)
       || ignoring(guid_participant)
@@ -2843,7 +2843,7 @@ Sedp::data_received(DCPS::MessageId /*message_id*/,
   const GUID_t& guid = data.participantGuid;
   const GUID_t guid_participant = make_part_guid(guid);
 
-  ACE_GUARD(ACE_Thread_Mutex, g, lock_);
+  ACE_GUARD(DiscoveryMutex, g, lock_);
 
   if (ignoring(guid) || ignoring(guid_participant)) {
     return;
@@ -2867,7 +2867,7 @@ Sedp::received_participant_message_data_secure(DCPS::MessageId /*message_id*/,
   const GUID_t& guid = data.participantGuid;
   const GUID_t guid_participant = make_part_guid(guid);
 
-  ACE_GUARD(ACE_Thread_Mutex, g, lock_);
+  ACE_GUARD(DiscoveryMutex, g, lock_);
 
   if (ignoring(guid) || ignoring(guid_participant)) {
     return;
@@ -2892,7 +2892,7 @@ bool Sedp::should_drop_stateless_message(const DDS::Security::ParticipantGeneric
   bool ignored = false;
 
   {
-    ACE_GUARD_RETURN(ACE_Thread_Mutex, g, lock_, true);
+    ACE_GUARD_RETURN(DiscoveryMutex, g, lock_, true);
     this_endpoint = participant_stateless_message_reader_->get_guid();
     this_participant = participant_id_;
     ignored = ignoring(src_endpoint);
@@ -2922,7 +2922,7 @@ bool Sedp::should_drop_volatile_message(const DDS::Security::ParticipantGenericM
   GUID_t this_participant = GUID_UNKNOWN;
   bool ignored = false;
   {
-    ACE_GUARD_RETURN(ACE_Thread_Mutex, g, lock_, true);
+    ACE_GUARD_RETURN(DiscoveryMutex, g, lock_, true);
     this_participant = participant_id_;
     ignored = ignoring(src_endpoint);
   }
@@ -3129,7 +3129,7 @@ void Sedp::data_acked_i(const DCPS::GUID_t& local_id,
 #endif
       ) {
     const GUID_t remote_part = make_id(remote_id, ENTITYID_PARTICIPANT);
-    ACE_GUARD(ACE_Thread_Mutex, g, lock_);
+    ACE_GUARD(DiscoveryMutex, g, lock_);
     Spdp::DiscoveredParticipantIter iter = spdp_.participants_.find(remote_part);
     if (iter != spdp_.participants_.end()) {
       process_association_records_i(iter->second);
@@ -4031,7 +4031,7 @@ bool Sedp::TypeLookupReplyReader::process_type_lookup_reply(
       seq_num.getValue()));
   }
 
-  ACE_GUARD_RETURN(ACE_Thread_Mutex, g, sedp_.lock_, false);
+  ACE_GUARD_RETURN(DiscoveryMutex, g, sedp_.lock_, false);
   if (DCPS::transport_debug.log_progress) {
     log_progress("receive type lookup reply", get_guid(), sample.header_.publication_id_, sedp_.spdp_.get_participant_discovered_at(sample.header_.publication_id_));
   }
@@ -5737,7 +5737,7 @@ Sedp::handle_datawriter_crypto_tokens(const DDS::Security::ParticipantVolatileMe
   DDS::Security::SecurityException se = {"", 0, 0};
   Security::CryptoKeyExchange_var key_exchange = spdp_.get_security_config()->get_crypto_key_exchange();
 
-  ACE_GUARD_RETURN(ACE_Thread_Mutex, g, lock_, false);
+  ACE_GUARD_RETURN(DiscoveryMutex, g, lock_, false);
 
   const DDS::Security::DatawriterCryptoHandle dwch =
     get_handle_registry()->get_remote_datawriter_crypto_handle(msg.source_endpoint_guid);
@@ -5800,7 +5800,7 @@ Sedp::handle_datareader_crypto_tokens(const DDS::Security::ParticipantVolatileMe
   DDS::Security::SecurityException se = {"", 0, 0};
   Security::CryptoKeyExchange_var key_exchange = spdp_.get_security_config()->get_crypto_key_exchange();
 
-  ACE_GUARD_RETURN(ACE_Thread_Mutex, g, lock_, false);
+  ACE_GUARD_RETURN(DiscoveryMutex, g, lock_, false);
 
   const DDS::Security::DatareaderCryptoHandle drch =
     get_handle_registry()->get_remote_datareader_crypto_handle(msg.source_endpoint_guid);
@@ -6008,7 +6008,7 @@ void
 Sedp::PublicationAgentInfoListener::update_agent_info(const DCPS::GUID_t& a_local_guid,
                                                       const ICE::AgentInfo& a_agent_info)
 {
-  ACE_GUARD(ACE_Thread_Mutex, g, sedp.lock_);
+  ACE_GUARD(DiscoveryMutex, g, sedp.lock_);
   LocalPublicationIter pos = sedp.local_publications_.find(a_local_guid);
   if (pos != sedp.local_publications_.end()) {
     pos->second.have_ice_agent_info = true;
@@ -6022,7 +6022,7 @@ Sedp::PublicationAgentInfoListener::update_agent_info(const DCPS::GUID_t& a_loca
 void
 Sedp::PublicationAgentInfoListener::remove_agent_info(const DCPS::GUID_t& a_local_guid)
 {
-  ACE_GUARD(ACE_Thread_Mutex, g, sedp.lock_);
+  ACE_GUARD(DiscoveryMutex, g, sedp.lock_);
   LocalPublicationIter pos = sedp.local_publications_.find(a_local_guid);
   if (pos != sedp.local_publications_.end()) {
     pos->second.have_ice_agent_info = false;
@@ -6036,7 +6036,7 @@ void
 Sedp::SubscriptionAgentInfoListener::update_agent_info(const DCPS::GUID_t& a_local_guid,
                                                        const ICE::AgentInfo& a_agent_info)
 {
-  ACE_GUARD(ACE_Thread_Mutex, g, sedp.lock_);
+  ACE_GUARD(DiscoveryMutex, g, sedp.lock_);
   LocalSubscriptionIter pos = sedp.local_subscriptions_.find(a_local_guid);
   if (pos != sedp.local_subscriptions_.end()) {
     pos->second.have_ice_agent_info = true;
@@ -6050,7 +6050,7 @@ Sedp::SubscriptionAgentInfoListener::update_agent_info(const DCPS::GUID_t& a_loc
 void
 Sedp::SubscriptionAgentInfoListener::remove_agent_info(const DCPS::GUID_t& a_local_guid)
 {
-  ACE_GUARD(ACE_Thread_Mutex, g, sedp.lock_);
+  ACE_GUARD(DiscoveryMutex, g, sedp.lock_);
   LocalSubscriptionIter pos = sedp.local_subscriptions_.find(a_local_guid);
   if (pos != sedp.local_subscriptions_.end()) {
     pos->second.have_ice_agent_info = false;
@@ -6388,7 +6388,7 @@ DCPS::TopicStatus Sedp::assert_topic(
   const char* dataTypeName, const DDS::TopicQos& qos,
   bool hasDcpsKey, DCPS::TopicCallbacks* topic_callbacks)
 {
-  ACE_GUARD_RETURN(ACE_Thread_Mutex, g, lock_, DCPS::INTERNAL_ERROR);
+  ACE_GUARD_RETURN(DiscoveryMutex, g, lock_, DCPS::INTERNAL_ERROR);
   DCPS::TopicDetailsMap::iterator iter = topics_.find(topicName);
   if (iter != topics_.end()) {
     if (iter->second.local_is_set() && iter->second.local_data_type_name() != dataTypeName) {
@@ -6414,7 +6414,7 @@ DCPS::TopicStatus Sedp::find_topic(
   DDS::TopicQos_out qos,
   GUID_t& topicId)
 {
-  ACE_GUARD_RETURN(ACE_Thread_Mutex, g, lock_, DCPS::INTERNAL_ERROR);
+  ACE_GUARD_RETURN(DiscoveryMutex, g, lock_, DCPS::INTERNAL_ERROR);
   DCPS::TopicDetailsMap::const_iterator iter = topics_.find(topicName);
   if (iter == topics_.end()) {
     return DCPS::NOT_FOUND;
@@ -6430,7 +6430,7 @@ DCPS::TopicStatus Sedp::find_topic(
 
 DCPS::TopicStatus Sedp::remove_topic(const GUID_t& topicId)
 {
-  ACE_GUARD_RETURN(ACE_Thread_Mutex, g, lock_, DCPS::INTERNAL_ERROR);
+  ACE_GUARD_RETURN(DiscoveryMutex, g, lock_, DCPS::INTERNAL_ERROR);
   TopicNameMap::iterator name_iter = topic_names_.find(topicId);
   if (name_iter == topic_names_.end()) {
     return DCPS::NOT_FOUND;
@@ -6453,7 +6453,7 @@ bool Sedp::add_publication(
   const DDS::PublisherQos& publisherQos,
   const DCPS::TypeInformation& type_info)
 {
-  ACE_GUARD_RETURN(ACE_Thread_Mutex, g, lock_, false);
+  ACE_GUARD_RETURN(DiscoveryMutex, g, lock_, false);
 
   GUID_t rid = participant_id_;
   assign_publication_key(rid, topicId, qos);
@@ -6551,7 +6551,7 @@ bool Sedp::add_publication(
 
 void Sedp::remove_publication(const GUID_t& publicationId)
 {
-  ACE_GUARD(ACE_Thread_Mutex, g, lock_);
+  ACE_GUARD(DiscoveryMutex, g, lock_);
   LocalPublicationIter iter = local_publications_.find(publicationId);
   if (iter != local_publications_.end()) {
     if (DDS::RETCODE_OK == remove_publication_i(publicationId, iter->second)) {
@@ -6579,7 +6579,7 @@ void Sedp::remove_publication(const GUID_t& publicationId)
 void Sedp::update_publication_locators(const GUID_t& publicationId,
                                        const DCPS::TransportLocatorSeq& transInfo)
 {
-  ACE_GUARD(ACE_Thread_Mutex, g, lock_);
+  ACE_GUARD(DiscoveryMutex, g, lock_);
   LocalPublicationIter iter = local_publications_.find(publicationId);
   if (iter != local_publications_.end()) {
     if (DCPS_debug_level > 3) {
@@ -6605,7 +6605,7 @@ bool Sedp::add_subscription(
   const DDS::StringSeq& params,
   const DCPS::TypeInformation& type_info)
 {
-  ACE_GUARD_RETURN(ACE_Thread_Mutex, g, lock_, false);
+  ACE_GUARD_RETURN(DiscoveryMutex, g, lock_, false);
 
   GUID_t rid = participant_id_;
   assign_subscription_key(rid, topicId, qos);
@@ -6707,7 +6707,7 @@ bool Sedp::add_subscription(
 
 void Sedp::remove_subscription(const GUID_t& subscriptionId)
 {
-  ACE_GUARD(ACE_Thread_Mutex, g, lock_);
+  ACE_GUARD(DiscoveryMutex, g, lock_);
   LocalSubscriptionIter iter = local_subscriptions_.find(subscriptionId);
   if (iter != local_subscriptions_.end()) {
     if (DDS::RETCODE_OK == remove_subscription_i(subscriptionId, iter->second)) {
@@ -6736,7 +6736,7 @@ void Sedp::update_subscription_locators(
   const GUID_t& subscriptionId,
   const DCPS::TransportLocatorSeq& transInfo)
 {
-  ACE_GUARD(ACE_Thread_Mutex, g, lock_);
+  ACE_GUARD(DiscoveryMutex, g, lock_);
   LocalSubscriptionIter iter = local_subscriptions_.find(subscriptionId);
   if (iter != local_subscriptions_.end()) {
     if (DCPS_debug_level > 3) {
@@ -7420,7 +7420,7 @@ bool Sedp::need_type_info(const XTypes::TypeInformation* type_info,
 
 void Sedp::remove_expired_endpoints()
 {
-  ACE_GUARD(ACE_Thread_Mutex, g, lock_);
+  ACE_GUARD(DiscoveryMutex, g, lock_);
   const MonotonicTimePoint now = MonotonicTimePoint::now();
 
   MatchingDataIter end_iter = matching_data_buffer_.end();

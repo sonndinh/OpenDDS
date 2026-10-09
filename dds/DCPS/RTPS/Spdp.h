@@ -258,7 +258,7 @@ public:
 
   void ignore_topic(const GUID_t& ignoreId)
   {
-    ACE_GUARD(ACE_Thread_Mutex, g, lock_);
+    ACE_GUARD(DiscoveryMutex, g, lock_);
     endpoint_manager().ignore(ignoreId);
   }
 
@@ -285,7 +285,7 @@ public:
 
   void ignore_publication(const GUID_t& ignoreId)
   {
-    ACE_GUARD(ACE_Thread_Mutex, g, lock_);
+    ACE_GUARD(DiscoveryMutex, g, lock_);
     return endpoint_manager().ignore(ignoreId);
   }
 
@@ -332,7 +332,7 @@ public:
 
   void ignore_subscription(const GUID_t& ignoreId)
   {
-    ACE_GUARD(ACE_Thread_Mutex, g, lock_);
+    ACE_GUARD(DiscoveryMutex, g, lock_);
     return endpoint_manager().ignore(ignoreId);
   }
 
@@ -396,7 +396,7 @@ private:
   // lock_ must be held before calling this.
   bool participant_uses_rtps_duration_fraction_i(const DCPS::GUID_t& guid) const;
 
-  mutable ACE_Thread_Mutex lock_;
+  mutable DiscoveryMutex lock_;
   DCPS::RcHandle<DCPS::BitSubscriber> bit_subscriber_;
   DDS::DomainParticipantQos qos_;
   friend class Sedp;
@@ -650,7 +650,7 @@ private:
   AtomicBool initialized_flag_;
 
   bool eh_shutdown_;
-  DCPS::ConditionVariable<ACE_Thread_Mutex> shutdown_cond_;
+  DCPS::ConditionVariable<DiscoveryMutex> shutdown_cond_;
   /// Spdp shutting down
   AtomicBool shutdown_flag_;
 
