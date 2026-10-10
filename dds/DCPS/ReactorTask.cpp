@@ -13,6 +13,7 @@
 #include "debug.h"
 #include "RcHandle_T.h"
 #include "Service_Participant.h"
+#include "ThreadRole.h"
 
 #include <ace/ACE.h>
 #include <ace/OS_NS_Thread.h>
@@ -182,6 +183,10 @@ int ReactorTask::svc()
   // multi-threaded reactor execution.
   _add_ref();
 
+#ifdef OPENDDS_DISCOVERY_PROFILING
+  set_thread_role("Reactor:" + name_);
+#endif
+
   if (n_threads_ > 1) {
     return run_reactor_i();
   }
@@ -269,6 +274,9 @@ int ReactorTask::run_reactor(size_t threads, const TimeDuration& run_time)
 
 int ReactorTask::run_reactor_i()
 {
+#ifdef OPENDDS_DISCOVERY_PROFILING
+  set_thread_role("Reactor:" + name_);
+#endif
   {
     GuardType guard(lock_);
     state_ = STATE_RUNNING;

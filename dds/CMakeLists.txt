@@ -103,6 +103,7 @@ add_library(OpenDDS_Dcps
   DCPS/SubscriberImpl.cpp
   DCPS/SubscriptionInstance.cpp
   DCPS/ThreadPool.cpp
+  DCPS/ThreadRole.cpp
   DCPS/ThreadStatusManager.cpp
   DCPS/TimeDuration.cpp
   DCPS/Time_Helper.cpp
@@ -375,6 +376,7 @@ target_sources(OpenDDS_Dcps
     DCPS/SubscriberImpl.h
     DCPS/SubscriptionInstance.h
     DCPS/ThreadPool.h
+    DCPS/ThreadRole.h
     DCPS/ThreadStatusManager.h
     DCPS/TimeDuration.h
     DCPS/TimeDuration.inl

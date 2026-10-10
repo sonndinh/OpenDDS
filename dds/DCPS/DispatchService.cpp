@@ -10,6 +10,7 @@
 #include "debug.h"
 #include "DispatchService.h"
 #include "Service_Participant.h"
+#include "ThreadRole.h"
 #include "TimeDuration.h"
 
 #include <ace/Reverse_Lock_T.h>
@@ -164,6 +165,9 @@ ACE_THR_FUNC_RETURN DispatchService::run(void* arg)
 
 void DispatchService::run_event_loop()
 {
+#ifdef OPENDDS_DISCOVERY_PROFILING
+  set_thread_role("EventDispatcher");
+#endif
   ThreadStatusManager& thread_status_manager = TheServiceParticipant->get_thread_status_manager();
   ACE_Reverse_Lock<ACE_Thread_Mutex> rev_lock(mutex_);
   ACE_Guard<ACE_Thread_Mutex> guard(mutex_);

@@ -17,6 +17,8 @@
 #  include <ace/Log_Msg.h>
 #  include <ace/OS_NS_Thread.h>
 
+#  include <dds/DCPS/ThreadRole.h>
+
 #  include <atomic>
 #  include <chrono>
 #  include <cstdint>
@@ -92,6 +94,7 @@ public:
   };
 
   struct ThreadStats {
+    DCPS::String role;
     std::uint64_t acquires; // successful acquire() and tryacquire()
     std::uint64_t contended; // acquire() calls that had to block
     std::uint64_t try_acquires; // successful tryacquire()
@@ -164,18 +167,18 @@ public:
                static_cast<ACE_UINT64>(try_failures_.load())));
     for (StatsMap::const_iterator it = stats_.begin(); it != stats_.end(); ++it) {
       const ThreadStats& s = it->second;
-      ACE_DEBUG((LM_INFO, "(%P|%t) DiscoveryMutex %@ tid %d: acquires %Q contended %Q try_acquires %Q "
+      ACE_DEBUG((LM_INFO, "(%P|%t) DiscoveryMutex %@ %C: acquires %Q contended %Q try_acquires %Q "
                  "wait_total_us %.3f wait_max_us %.3f hold_total_us %.3f hold_max_us %.3f\n",
-                 this, static_cast<int>(it->first),
+                 this, s.role.c_str(),
                  static_cast<ACE_UINT64>(s.acquires),
                  static_cast<ACE_UINT64>(s.contended),
                  static_cast<ACE_UINT64>(s.try_acquires),
                  s.wait.total / 1e3, s.wait.max / 1e3,
                  s.hold.total / 1e3, s.hold.max / 1e3));
-      ACE_DEBUG((LM_INFO, "(%P|%t) DiscoveryMutex %@ tid %d: wait_hist%C\n",
-                 this, static_cast<int>(it->first), s.wait.hist.to_string().c_str()));
-      ACE_DEBUG((LM_INFO, "(%P|%t) DiscoveryMutex %@ tid %d: hold_hist%C\n",
-                 this, static_cast<int>(it->first), s.hold.hist.to_string().c_str()));
+      ACE_DEBUG((LM_INFO, "(%P|%t) DiscoveryMutex %@ %C: wait_hist%C\n",
+                 this, s.role.c_str(), s.wait.hist.to_string().c_str()));
+      ACE_DEBUG((LM_INFO, "(%P|%t) DiscoveryMutex %@ %C: hold_hist%C\n",
+                 this, s.role.c_str(), s.hold.hist.to_string().c_str()));
     }
   }
 
@@ -198,6 +201,9 @@ private:
   void on_acquired(Clock::time_point now, Nanos waited, bool contended)
   {
     ThreadStats& s = stats_[current_tid()];
+    if (s.role.empty()) {
+      s.role = DCPS::thread_role();
+    }
     ++s.acquires;
     if (contended) {
       ++s.contended;
