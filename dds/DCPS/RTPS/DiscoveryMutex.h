@@ -109,6 +109,7 @@ public:
   explicit DiscoveryMutex(const ACE_TCHAR* name = 0)
     : mutex_(name)
     , created_(Clock::now())
+    , busy_baseline_(DCPS::thread_busy_snapshot())
     , holder_(0)
     , try_failures_(0)
   {}
@@ -162,6 +163,7 @@ public:
   void log_stats() const
   {
     const Nanos lifetime = to_nanos(Clock::now() - created_);
+    const DCPS::ThreadBusySnapshot busy_now = DCPS::thread_busy_snapshot();
     ACE_DEBUG((LM_INFO, "(%P|%t) DiscoveryMutex %@ stats: lifetime_us %.3f threads %B try_failures %Q\n",
                this, lifetime / 1e3, stats_.size(),
                static_cast<ACE_UINT64>(try_failures_.load())));
@@ -175,6 +177,18 @@ public:
                  static_cast<ACE_UINT64>(s.try_acquires),
                  s.wait.total / 1e3, s.wait.max / 1e3,
                  s.hold.total / 1e3, s.hold.max / 1e3));
+      const DCPS::ThreadBusySnapshot::const_iterator busy = busy_now.find(it->first);
+      if (busy != busy_now.end() && busy->second.labeled) {
+        Nanos busy_ns = busy->second.busy_ns;
+        const DCPS::ThreadBusySnapshot::const_iterator base = busy_baseline_.find(it->first);
+        if (base != busy_baseline_.end()) {
+          busy_ns -= base->second.busy_ns;
+        }
+        ACE_DEBUG((LM_INFO, "(%P|%t) DiscoveryMutex %@ %C: busy_us %.3f outside_us %.3f busy_pct %.2f\n",
+                   this, s.role.c_str(), busy_ns / 1e3,
+                   (busy_ns - s.wait.total - s.hold.total) / 1e3,
+                   lifetime ? 100.0 * busy_ns / lifetime : 0.0));
+      }
       ACE_DEBUG((LM_INFO, "(%P|%t) DiscoveryMutex %@ %C: wait_hist%C\n",
                  this, s.role.c_str(), s.wait.hist.to_string().c_str()));
       ACE_DEBUG((LM_INFO, "(%P|%t) DiscoveryMutex %@ %C: hold_hist%C\n",
@@ -215,6 +229,7 @@ private:
 
   ACE_Thread_Mutex mutex_;
   const Clock::time_point created_;
+  const DCPS::ThreadBusySnapshot busy_baseline_;
   StatsMap stats_;
   ThreadStats* holder_;
   Clock::time_point hold_start_;
