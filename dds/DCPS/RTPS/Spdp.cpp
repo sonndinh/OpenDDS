@@ -2704,11 +2704,10 @@ Spdp::SpdpTransport::enable_periodic_tasks()
   enable_thread_status_event(TheServiceParticipant->get_thread_status_manager().thread_status_interval());
 
 #ifdef OPENDDS_DISCOVERY_PROFILING
-  // Set with the OPENDDS_DISCOVERY_PROFILING_INTERVAL environment variable; 0 disables.
-  const DDS::UInt32 profiling_interval =
-    TheServiceParticipant->config_store()->get_uint32("DISCOVERY_PROFILING_INTERVAL", 10);
-  if (profiling_event_ && profiling_interval) {
-    profiling_event_->enable(TimeDuration(profiling_interval), false);
+  const TimeDuration profiling_interval = outer->config_->discovery_profiling_interval();
+  if (profiling_event_ && !profiling_interval.is_zero()) {
+    outer->lock_.enable_reporting();
+    profiling_event_->enable(profiling_interval, false);
   }
 #endif
 }

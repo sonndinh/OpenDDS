@@ -137,6 +137,7 @@ public:
     : mutex_(name)
     , holder_(0)
     , try_failures_(0)
+    , reporting_enabled_(false)
   {
     initial_.time = Clock::now();
     initial_.busy = DCPS::thread_busy_snapshot();
@@ -145,8 +146,13 @@ public:
 
   ~DiscoveryMutex()
   {
-    log_report("final");
+    if (reporting_enabled_) {
+      log_report("final");
+    }
   }
+
+  /// Enables the final report at destruction; periodic reports are driven by the caller.
+  void enable_reporting() { reporting_enabled_ = true; }
 
   int acquire()
   {
@@ -311,6 +317,7 @@ private:
   ThreadStats* holder_;
   Clock::time_point hold_start_;
   std::atomic<std::uint64_t> try_failures_;
+  std::atomic<bool> reporting_enabled_;
 
   ACE_Thread_Mutex report_mutex_;
   Report initial_;

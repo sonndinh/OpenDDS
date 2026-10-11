@@ -213,6 +213,12 @@ public:
   bool periodic_directed_spdp() const;
   void periodic_directed_spdp(bool value);
 
+#ifdef OPENDDS_DISCOVERY_PROFILING
+  /// Period of discovery lock stats logging; zero (the default) disables logging.
+  DCPS::TimeDuration discovery_profiling_interval() const;
+  void discovery_profiling_interval(const DCPS::TimeDuration& x);
+#endif
+
   bool secure_participant_user_data() const;
   void secure_participant_user_data(bool value);
 

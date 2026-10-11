@@ -948,6 +948,24 @@ RtpsDiscoveryConfig::periodic_directed_spdp(bool value)
                                                      value);
 }
 
+#ifdef OPENDDS_DISCOVERY_PROFILING
+DCPS::TimeDuration
+RtpsDiscoveryConfig::discovery_profiling_interval() const
+{
+  return TheServiceParticipant->config_store()->get(config_key("DISCOVERY_PROFILING_INTERVAL").c_str(),
+                                                    DCPS::TimeDuration::zero_value,
+                                                    DCPS::ConfigStoreImpl::Format_FractionalSeconds);
+}
+
+void
+RtpsDiscoveryConfig::discovery_profiling_interval(const DCPS::TimeDuration& x)
+{
+  TheServiceParticipant->config_store()->set(config_key("DISCOVERY_PROFILING_INTERVAL").c_str(),
+                                             x,
+                                             DCPS::ConfigStoreImpl::Format_FractionalSeconds);
+}
+#endif
+
 bool
 RtpsDiscoveryConfig::secure_participant_user_data() const
 {
