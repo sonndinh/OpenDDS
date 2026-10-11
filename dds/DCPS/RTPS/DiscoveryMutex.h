@@ -14,6 +14,7 @@
 #  ifndef ACE_HAS_CPP11
 #    error "OPENDDS_DISCOVERY_PROFILING requires C++11"
 #  endif
+#  include <ace/Guard_T.h>
 #  include <ace/Log_Msg.h>
 #  include <ace/OS_NS_Thread.h>
 
@@ -64,6 +65,13 @@ public:
       ++counts[b];
     }
 
+    void subtract(const Histogram& other)
+    {
+      for (int b = 0; b < BUCKETS; ++b) {
+        counts[b] -= other.counts[b];
+      }
+    }
+
     std::string to_string() const
     {
       std::ostringstream os;
@@ -79,9 +87,10 @@ public:
   struct Durations {
     Nanos total;
     Nanos max;
+    Nanos interval_max; // reset by each report
     Histogram hist;
 
-    Durations() : total(0), max(0) {}
+    Durations() : total(0), max(0), interval_max(0) {}
 
     void add(Nanos ns)
     {
@@ -89,7 +98,16 @@ public:
       if (ns > max) {
         max = ns;
       }
+      if (ns > interval_max) {
+        interval_max = ns;
+      }
       hist.add(ns);
+    }
+
+    void subtract(const Durations& other)
+    {
+      total -= other.total;
+      hist.subtract(other.hist);
     }
   };
 
@@ -102,21 +120,32 @@ public:
     Durations hold;
 
     ThreadStats() : acquires(0), contended(0), try_acquires(0) {}
+
+    void subtract(const ThreadStats& other)
+    {
+      acquires -= other.acquires;
+      contended -= other.contended;
+      try_acquires -= other.try_acquires;
+      wait.subtract(other.wait);
+      hold.subtract(other.hold);
+    }
   };
 
   typedef std::map<pid_t, ThreadStats> StatsMap;
 
   explicit DiscoveryMutex(const ACE_TCHAR* name = 0)
     : mutex_(name)
-    , created_(Clock::now())
-    , busy_baseline_(DCPS::thread_busy_snapshot())
     , holder_(0)
     , try_failures_(0)
-  {}
+  {
+    initial_.time = Clock::now();
+    initial_.busy = DCPS::thread_busy_snapshot();
+    previous_ = initial_;
+  }
 
   ~DiscoveryMutex()
   {
-    log_stats();
+    log_report("final");
   }
 
   int acquire()
@@ -159,47 +188,97 @@ public:
   ACE_thread_mutex_t& lock() { return mutex_.lock(); }
   const ACE_thread_mutex_t& lock() const { return mutex_.lock(); }
 
-  /// Caller must hold the lock or otherwise guarantee no concurrent access.
-  void log_stats() const
+  /// Log stats since creation and since the previous report. Caller must not hold the lock.
+  void log_report(const char* reason)
   {
-    const Nanos lifetime = to_nanos(Clock::now() - created_);
-    const DCPS::ThreadBusySnapshot busy_now = DCPS::thread_busy_snapshot();
-    ACE_DEBUG((LM_INFO, "(%P|%t) DiscoveryMutex %@ stats: lifetime_us %.3f threads %B try_failures %Q\n",
-               this, lifetime / 1e3, stats_.size(),
-               static_cast<ACE_UINT64>(try_failures_.load())));
-    for (StatsMap::const_iterator it = stats_.begin(); it != stats_.end(); ++it) {
-      const ThreadStats& s = it->second;
-      ACE_DEBUG((LM_INFO, "(%P|%t) DiscoveryMutex %@ %C: acquires %Q contended %Q try_acquires %Q "
-                 "wait_total_us %.3f wait_max_us %.3f hold_total_us %.3f hold_max_us %.3f\n",
-                 this, s.role.c_str(),
+    Report current;
+    {
+      // Take the raw mutex so the report isn't counted in the stats.
+      ACE_Guard<ACE_Thread_Mutex> g(mutex_);
+      current.stats = stats_;
+      for (StatsMap::iterator it = stats_.begin(); it != stats_.end(); ++it) {
+        it->second.wait.interval_max = 0;
+        it->second.hold.interval_max = 0;
+      }
+    }
+    current.time = Clock::now();
+    current.busy = DCPS::thread_busy_snapshot();
+    current.try_failures = try_failures_.load();
+
+    ACE_Guard<ACE_Thread_Mutex> g(report_mutex_);
+    log_section(reason, "cumulative", current, initial_, false);
+    log_section(reason, "interval", current, previous_, true);
+    previous_ = current;
+  }
+
+private:
+  struct Report {
+    Report() : try_failures(0) {}
+
+    Clock::time_point time;
+    StatsMap stats;
+    DCPS::ThreadBusySnapshot busy;
+    std::uint64_t try_failures;
+  };
+
+  void log_section(const char* reason, const char* kind,
+                   const Report& current, const Report& base, bool interval) const
+  {
+    const Nanos window = to_nanos(current.time - base.time);
+    ACE_DEBUG((LM_INFO, "(%P|%t) DiscoveryMutex %@ %C %C: window_us %.3f threads %B try_failures %Q\n",
+               this, reason, kind, window / 1e3, current.stats.size(),
+               static_cast<ACE_UINT64>(current.try_failures - base.try_failures)));
+
+    for (StatsMap::const_iterator it = current.stats.begin(); it != current.stats.end(); ++it) {
+      ThreadStats s = it->second;
+      const StatsMap::const_iterator prev = base.stats.find(it->first);
+      if (prev != base.stats.end()) {
+        s.subtract(prev->second);
+      }
+
+      const DCPS::ThreadBusySample* busy = find_busy(current.busy, it->first);
+      const DCPS::ThreadBusySample* busy_base = find_busy(base.busy, it->first);
+      const Nanos busy_ns = busy ? busy->busy_ns - (busy_base ? busy_base->busy_ns : 0) : 0;
+      if (interval && !s.acquires && !(busy && busy->labeled && busy_ns)) {
+        continue;
+      }
+
+      const char* const role = s.role.c_str();
+      ACE_DEBUG((LM_INFO, "(%P|%t) DiscoveryMutex %@ %C %C %C: acquires %Q contended %Q try_acquires %Q "
+                 "wait_us %.3f wait_max_us %.3f hold_us %.3f hold_max_us %.3f\n",
+                 this, reason, kind, role,
                  static_cast<ACE_UINT64>(s.acquires),
                  static_cast<ACE_UINT64>(s.contended),
                  static_cast<ACE_UINT64>(s.try_acquires),
-                 s.wait.total / 1e3, s.wait.max / 1e3,
-                 s.hold.total / 1e3, s.hold.max / 1e3));
-      const DCPS::ThreadBusySnapshot::const_iterator busy = busy_now.find(it->first);
-      if (busy != busy_now.end() && busy->second.labeled) {
-        Nanos busy_ns = busy->second.busy_ns;
-        const DCPS::ThreadBusySnapshot::const_iterator base = busy_baseline_.find(it->first);
-        if (base != busy_baseline_.end()) {
-          busy_ns -= base->second.busy_ns;
-        }
-        ACE_DEBUG((LM_INFO, "(%P|%t) DiscoveryMutex %@ %C: busy_us %.3f outside_us %.3f busy_pct %.2f\n",
-                   this, s.role.c_str(), busy_ns / 1e3,
+                 s.wait.total / 1e3, (interval ? s.wait.interval_max : s.wait.max) / 1e3,
+                 s.hold.total / 1e3, (interval ? s.hold.interval_max : s.hold.max) / 1e3));
+
+      if (busy && busy->labeled) {
+        const Nanos cpu_ns = (busy->cpu_ns >= 0 && busy_base && busy_base->cpu_ns >= 0) ?
+          busy->cpu_ns - busy_base->cpu_ns : busy->cpu_ns;
+        const Nanos runq_ns = (busy->runq_ns >= 0 && busy_base && busy_base->runq_ns >= 0) ?
+          busy->runq_ns - busy_base->runq_ns : busy->runq_ns;
+        ACE_DEBUG((LM_INFO, "(%P|%t) DiscoveryMutex %@ %C %C %C: busy_us %.3f outside_us %.3f busy_pct %.2f "
+                   "cpu_us %.3f runq_us %.3f\n",
+                   this, reason, kind, role, busy_ns / 1e3,
                    (busy_ns - s.wait.total - s.hold.total) / 1e3,
-                   lifetime ? 100.0 * busy_ns / lifetime : 0.0));
+                   window ? 100.0 * busy_ns / window : 0.0,
+                   cpu_ns / 1e3, runq_ns / 1e3));
       }
-      ACE_DEBUG((LM_INFO, "(%P|%t) DiscoveryMutex %@ %C: wait_hist%C\n",
-                 this, s.role.c_str(), s.wait.hist.to_string().c_str()));
-      ACE_DEBUG((LM_INFO, "(%P|%t) DiscoveryMutex %@ %C: hold_hist%C\n",
-                 this, s.role.c_str(), s.hold.hist.to_string().c_str()));
+
+      ACE_DEBUG((LM_INFO, "(%P|%t) DiscoveryMutex %@ %C %C %C: wait_hist%C\n",
+                 this, reason, kind, role, s.wait.hist.to_string().c_str()));
+      ACE_DEBUG((LM_INFO, "(%P|%t) DiscoveryMutex %@ %C %C %C: hold_hist%C\n",
+                 this, reason, kind, role, s.hold.hist.to_string().c_str()));
     }
   }
 
-  /// Caller must hold the lock.
-  const StatsMap& stats() const { return stats_; }
+  static const DCPS::ThreadBusySample* find_busy(const DCPS::ThreadBusySnapshot& snapshot, pid_t tid)
+  {
+    const DCPS::ThreadBusySnapshot::const_iterator it = snapshot.find(tid);
+    return it == snapshot.end() ? 0 : &it->second;
+  }
 
-private:
   static Nanos to_nanos(Clock::duration d)
   {
     return std::chrono::duration_cast<std::chrono::nanoseconds>(d).count();
@@ -228,12 +307,14 @@ private:
   }
 
   ACE_Thread_Mutex mutex_;
-  const Clock::time_point created_;
-  const DCPS::ThreadBusySnapshot busy_baseline_;
   StatsMap stats_;
   ThreadStats* holder_;
   Clock::time_point hold_start_;
   std::atomic<std::uint64_t> try_failures_;
+
+  ACE_Thread_Mutex report_mutex_;
+  Report initial_;
+  Report previous_;
 
   DiscoveryMutex(const DiscoveryMutex&);
   DiscoveryMutex& operator=(const DiscoveryMutex&);

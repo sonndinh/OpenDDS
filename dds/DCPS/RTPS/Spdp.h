@@ -583,6 +583,10 @@ private:
     DCPS::PeriodicEvent_rch thread_status_event_;
     DCPS::MonotonicTimePoint last_thread_status_harvest_;
 #endif
+#ifdef OPENDDS_DISCOVERY_PROFILING
+    void profiling_task();
+    DCPS::PeriodicEvent_rch profiling_event_;
+#endif
     DCPS::RcHandle<DCPS::InternalDataReader<DCPS::NetworkInterfaceAddress> > network_interface_address_reader_;
 #if OPENDDS_CONFIG_SECURITY
     void process_handshake_deadlines();

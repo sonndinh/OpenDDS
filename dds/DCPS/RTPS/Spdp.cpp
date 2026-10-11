@@ -2566,6 +2566,10 @@ Spdp::SpdpTransport::open(const DCPS::ReactorTask_rch& reactor_task,
 
   init_thread_status_event();
 
+#ifdef OPENDDS_DISCOVERY_PROFILING
+  profiling_event_ = DCPS::make_rch<DCPS::PeriodicEvent>(outer->sedp_->event_dispatcher(), DCPS::make_rch<SpdpTransportEvent>(rchandle_from(this), &SpdpTransport::profiling_task));
+#endif
+
   // Connect the listeners last so that the tasks are created.
   DCPS::ConfigListener::job_queue(job_queue);
   config_reader_ = DCPS::make_rch<DCPS::ConfigReader>(DCPS::ConfigStoreImpl::datareader_qos(), rchandle_from(this));
@@ -2698,6 +2702,15 @@ Spdp::SpdpTransport::enable_periodic_tasks()
 #endif
 
   enable_thread_status_event(TheServiceParticipant->get_thread_status_manager().thread_status_interval());
+
+#ifdef OPENDDS_DISCOVERY_PROFILING
+  // Set with the OPENDDS_DISCOVERY_PROFILING_INTERVAL environment variable; 0 disables.
+  const DDS::UInt32 profiling_interval =
+    TheServiceParticipant->config_store()->get_uint32("DISCOVERY_PROFILING_INTERVAL", 10);
+  if (profiling_event_ && profiling_interval) {
+    profiling_event_->enable(TimeDuration(profiling_interval), false);
+  }
+#endif
 }
 
 void
@@ -2782,6 +2795,11 @@ Spdp::SpdpTransport::close(const DCPS::ReactorTask_rch& reactor_task)
 #ifndef DDS_HAS_MINIMUM_BIT
   if (thread_status_event_) {
     thread_status_event_->disable();
+  }
+#endif
+#ifdef OPENDDS_DISCOVERY_PROFILING
+  if (profiling_event_) {
+    profiling_event_->disable();
   }
 #endif
 
@@ -4610,6 +4628,16 @@ Spdp::SpdpTransport::process_lease_expirations()
 
   outer->process_lease_expirations(MonotonicTimePoint::now());
 }
+
+#ifdef OPENDDS_DISCOVERY_PROFILING
+void Spdp::SpdpTransport::profiling_task()
+{
+  DCPS::RcHandle<Spdp> outer = outer_.lock();
+  if (!outer) return;
+
+  outer->lock_.log_report("periodic");
+}
+#endif
 
 #ifndef DDS_HAS_MINIMUM_BIT
 void Spdp::SpdpTransport::thread_status_task()

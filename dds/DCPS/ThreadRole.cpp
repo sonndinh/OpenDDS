@@ -12,6 +12,7 @@
 #include <ace/Thread_Mutex.h>
 
 #include <chrono>
+#include <fstream>
 #include <sstream>
 
 OPENDDS_BEGIN_VERSIONED_NAMESPACE_DECL
@@ -22,13 +23,15 @@ namespace DCPS {
 #ifdef OPENDDS_DISCOVERY_PROFILING
 namespace {
   struct BusyEntry {
-    BusyEntry() : labeled(false), busy_ns(0), busy_since(0) {}
+    BusyEntry() : labeled(false), busy_ns(0), busy_since(0), cpu_ns(-1), runq_ns(-1) {}
 
     ACE_Thread_Mutex mutex;
     String role;
     bool labeled;
     std::int64_t busy_ns;
     std::int64_t busy_since; // 0 while idle
+    std::int64_t cpu_ns; // last value read, kept after the thread exits
+    std::int64_t runq_ns;
   };
 
   // Entries outlive their threads so stats remain readable after a thread exits.
@@ -69,6 +72,14 @@ namespace {
     std::ostringstream os;
     os << role << "(tid " << tid << ')';
     return os.str().c_str();
+  }
+
+  bool read_schedstat(pid_t tid, std::int64_t& cpu_ns, std::int64_t& runq_ns)
+  {
+    std::ostringstream path;
+    path << "/proc/self/task/" << tid << "/schedstat";
+    std::ifstream in(path.str().c_str());
+    return static_cast<bool>(in >> cpu_ns >> runq_ns);
   }
 
   BusyEntry& entry_for(ThreadState& ts)
@@ -141,12 +152,20 @@ ThreadBusySnapshot thread_busy_snapshot()
   ACE_Guard<ACE_Thread_Mutex> rg(r.mutex);
   const std::int64_t now = now_ns();
   for (std::map<pid_t, BusyEntry*>::const_iterator it = r.entries.begin(); it != r.entries.end(); ++it) {
+    std::int64_t cpu_ns, runq_ns;
+    const bool have_sched = read_schedstat(it->first, cpu_ns, runq_ns);
     BusyEntry& e = *it->second;
     ACE_Guard<ACE_Thread_Mutex> eg(e.mutex);
+    if (have_sched) {
+      e.cpu_ns = cpu_ns;
+      e.runq_ns = runq_ns;
+    }
     ThreadBusySample& sample = snapshot[it->first];
     sample.role = e.role;
     sample.labeled = e.labeled;
     sample.busy_ns = e.busy_ns + (e.busy_since ? now - e.busy_since : 0);
+    sample.cpu_ns = e.cpu_ns;
+    sample.runq_ns = e.runq_ns;
   }
   return snapshot;
 }

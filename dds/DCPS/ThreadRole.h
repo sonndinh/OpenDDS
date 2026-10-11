@@ -36,11 +36,13 @@ OpenDDS_Dcps_Export const String& thread_role();
 OpenDDS_Dcps_Export void thread_busy_transition(bool active, bool nested);
 
 struct ThreadBusySample {
-  ThreadBusySample() : labeled(false), busy_ns(0) {}
+  ThreadBusySample() : labeled(false), busy_ns(0), cpu_ns(-1), runq_ns(-1) {}
 
   String role;
   bool labeled; // false for threads without set_thread_role, whose idle time isn't marked
   std::int64_t busy_ns; // wall time spent active, including an in-progress busy period
+  std::int64_t cpu_ns; // on-CPU time from /proc schedstat, -1 if unavailable
+  std::int64_t runq_ns; // time runnable but waiting for a CPU, -1 if unavailable
 };
 
 typedef std::map<pid_t, ThreadBusySample> ThreadBusySnapshot;
