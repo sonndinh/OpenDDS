@@ -203,10 +203,11 @@ class DummySched(ProcSched):
 class CommonSched(ProcSched):
     def __init__(self, **params):
         ProcSched.__init__(self, **params)
+        self.participant_relay_uid = params.get('participant_relay_uid')
 
 
     def start_common_prog(self, uid, run_no, running_for, kill, nick, prog, *args, **env):
-        relay_uid = randint(1,2)
+        relay_uid = self.participant_relay_uid or randint(1, 2)
         cmd = list(args)
         log_path = f'{nick}_{uid}.log'
         if run_no == 1 and os.path.exists(log_path):
@@ -320,22 +321,25 @@ class RelaySched(OneshotSched):
     def __init__(self, **params):
         OneshotSched.__init__(self, **params)
         self.uid = params['uid']
-        self.profile = params['profile']
+        self.heap_profile = params.get('heap_profile', False)
+        self.discovery_profile = params.get('discovery_profile', False)
 
     def callback(self):
-        log_path = f'relay_{self.uid}.log'
+        log_prefix = 'relay_discovery' if self.discovery_profile else 'relay'
+        log_path = f'{log_prefix}_{self.uid}.log'
         if os.path.exists(log_path):
             os.remove(log_path)
         valgrind = []
-        if self.profile:
+        if self.heap_profile:
             valgrind = [
                 'valgrind', '--tool=massif', '--threshold=.0001',
                 '--max-snapshots=200', '--detailed-freq=1', '--xtree-memory=full'
             ]
+        config_file = 'stress_relay_discovery.ini' if self.discovery_profile else f'stress_relay_{self.uid}.ini'
         return self.proc_man.run(f'relay-{self.uid}',
                                  *valgrind,
                                  DDS_ROOT / 'bin' / 'RtpsRelay',
-                                 '-DCPSConfigFile', f'stress_relay_{self.uid}.ini',
+                                 '-DCPSConfigFile', config_file,
                                  '-ORBVerboseLogging', '1',
                                  '-ApplicationDomain', '42',
                                  '-RelayDomain', '0',
@@ -400,7 +404,11 @@ if __name__ == '__main__':
     argp.add_argument('-r', '--ramp-up', type=int, default=0,
         help='Gradually increase load in these increments')
     argp.add_argument('--dummy', action='store_true')
-    argp.add_argument('--profile', action='store_true', help='Profile the relay with massif')
+    profile_group = argp.add_mutually_exclusive_group()
+    profile_group.add_argument('--heap-profile', action='store_true',
+        help='Profile the relay heap with massif')
+    profile_group.add_argument('--discovery-profile', action='store_true',
+        help='Run one relay and connect all participants to relay 1')
     args = argp.parse_args()
 
     # Generate keys, certificates, and permissions documents
@@ -568,6 +576,8 @@ if __name__ == '__main__':
         uid_start=1,
         uid_count=args.ramp_up if args.ramp_up else args.count,
     )
+    if args.discovery_profile:
+        common['participant_relay_uid'] = 1
     if args.dummy:
         main_scheds = [DummySched(**common, min_start=1, max_start=5, min_dur=1, max_dur=10)]
     else:
@@ -583,9 +593,12 @@ if __name__ == '__main__':
         ]
     other_scheds = [
         MonitorSched(interval=0),
-        RelaySched(uid=1, interval=0, profile=args.profile),
-        RelaySched(uid=2, interval=0, profile=args.profile)
+        RelaySched(uid=1, interval=0, heap_profile=args.heap_profile,
+                   discovery_profile=args.discovery_profile)
     ]
+    if not args.discovery_profile:
+        other_scheds.append(RelaySched(uid=2, interval=0, heap_profile=args.heap_profile,
+                                       discovery_profile=False))
     if args.max_time:
         other_scheds.append(ExitSched(interval=args.max_time))
     if args.ramp_up:
