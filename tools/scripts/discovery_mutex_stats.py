@@ -147,8 +147,16 @@ def summarize_mutex(mutex, reports, show_timeline):
     print('  try_failures: {}'.format(latest.try_failures))
 
     print('\nCumulative per thread:')
+
+    def order(item):
+        role, v = item
+        busy = v.get('busy_us')
+        hold_ratio = v.get('hold_us', 0.0) / busy if busy else -1.0
+        return ('SEDPTransportInst' not in role, -hold_ratio)
+
+    ordered = sorted(latest.threads.items(), key=order)
     rows = []
-    for role, v in latest.threads.items():
+    for role, v in ordered:
         busy = v.get('busy_us')
         hold = v.get('hold_us', 0.0)
         wait = v.get('wait_us', 0.0)
@@ -169,7 +177,7 @@ def summarize_mutex(mutex, reports, show_timeline):
 
     print('\nHold/wait distribution (cumulative, bucket upper bounds):')
     rows = []
-    for role, v in latest.threads.items():
+    for role, v in ordered:
         for name in ('hold_hist', 'wait_hist'):
             hist = v.get(name, {})
             if not sum(hist.values()):
