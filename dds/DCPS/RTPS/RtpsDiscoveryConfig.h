@@ -166,6 +166,10 @@ public:
   OPENDDS_STRING guid_interface() const;
   void guid_interface(const OPENDDS_STRING& gi);
 
+  /// File the SEDP reactor thread writes its OS thread id to once running; empty disables.
+  String sedp_thread_id_file() const;
+  void sedp_thread_id_file(const String& path);
+
   DCPS::NetworkAddressSet spdp_send_addrs() const;
   void spdp_send_addrs(const DCPS::NetworkAddressSet& addrs);
 
@@ -215,8 +219,8 @@ public:
 
 #ifdef OPENDDS_DISCOVERY_PROFILING
   /// Period of discovery lock stats logging; zero (the default) disables logging.
-  DCPS::TimeDuration discovery_profiling_interval() const;
-  void discovery_profiling_interval(const DCPS::TimeDuration& x);
+  DCPS::TimeDuration discovery_mutex_profiling_interval() const;
+  void discovery_mutex_profiling_interval(const DCPS::TimeDuration& x);
 #endif
 
   bool secure_participant_user_data() const;

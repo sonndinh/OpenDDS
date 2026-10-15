@@ -2704,7 +2704,7 @@ Spdp::SpdpTransport::enable_periodic_tasks()
   enable_thread_status_event(TheServiceParticipant->get_thread_status_manager().thread_status_interval());
 
 #ifdef OPENDDS_DISCOVERY_PROFILING
-  const TimeDuration profiling_interval = outer->config_->discovery_profiling_interval();
+  const TimeDuration profiling_interval = outer->config_->discovery_mutex_profiling_interval();
   if (profiling_event_ && !profiling_interval.is_zero()) {
     outer->lock_.enable_reporting();
     profiling_event_->enable(profiling_interval, false);

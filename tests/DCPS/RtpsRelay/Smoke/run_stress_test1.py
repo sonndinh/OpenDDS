@@ -12,8 +12,9 @@ import inspect
 import subprocess
 import argparse
 import platform
+import shutil
 from random import randint, uniform, choice
-from time import time, sleep
+from time import time, sleep, strftime
 from heapq import heappush, heappop
 from pathlib import Path
 from shutil import rmtree
@@ -45,6 +46,7 @@ def log_time(t):
 
 
 def log(*args, **kw):
+    kw.setdefault('flush', True)
     print(log_time(time()), *args, **kw)
 
 
@@ -318,14 +320,24 @@ relay_config = {
 }
 
 class RelaySched(OneshotSched):
+    # Prefix of the environment variables for the relay's application domain discovery config.
+    DISCOVERY_ENV_PREFIX = 'OPENDDS_RTPS_DISCOVERY_APPLICATION_RTPS_DISCOVERY_'
+
     def __init__(self, **params):
         OneshotSched.__init__(self, **params)
         self.uid = params['uid']
         self.heap_profile = params.get('heap_profile', False)
-        self.discovery_profile = params.get('discovery_profile', False)
+        self.discovery_mutex_profile = params.get('discovery_mutex_profile', False)
+        self.discovery_cpu_profile = params.get('discovery_cpu_profile', False)
+        self.sedp_tid_file = params.get('sedp_tid_file')
+
+    def start(self, proc_man):
+        self.proc_man = proc_man
+        return self.callback()
 
     def callback(self):
-        log_prefix = 'relay_discovery' if self.discovery_profile else 'relay'
+        discovery_profile = self.discovery_mutex_profile or self.discovery_cpu_profile
+        log_prefix = 'relay_discovery' if discovery_profile else 'relay'
         log_path = f'{log_prefix}_{self.uid}.log'
         if os.path.exists(log_path):
             os.remove(log_path)
@@ -335,7 +347,12 @@ class RelaySched(OneshotSched):
                 'valgrind', '--tool=massif', '--threshold=.0001',
                 '--max-snapshots=200', '--detailed-freq=1', '--xtree-memory=full'
             ]
-        config_file = 'stress_relay_discovery.ini' if self.discovery_profile else f'stress_relay_{self.uid}.ini'
+        config_file = 'stress_relay_discovery.ini' if discovery_profile else f'stress_relay_{self.uid}.ini'
+        env = {}
+        if self.discovery_mutex_profile:
+            env[self.DISCOVERY_ENV_PREFIX + 'DISCOVERY_MUTEX_PROFILING_INTERVAL'] = '5'
+        if self.discovery_cpu_profile:
+            env[self.DISCOVERY_ENV_PREFIX + 'SEDP_THREAD_ID_FILE'] = str(self.sedp_tid_file)
         return self.proc_man.run(f'relay-{self.uid}',
                                  *valgrind,
                                  DDS_ROOT / 'bin' / 'RtpsRelay',
@@ -368,6 +385,7 @@ class RelaySched(OneshotSched):
                                  '-AdmissionMaxParticipantsRange', '9500-10000',
                                  '-LogUtilizationChanges', '1',
                                  '-ORBLogFile', log_path,
+                                 **env,
                                  )
 
 class MonitorSched(OneshotSched):
@@ -387,12 +405,97 @@ class MonitorSched(OneshotSched):
                                  '-DCPSPendingTimeout', '3',
                                  )
 
-def run_sim(*scheds):
+def run_sim(*scheds, proc_man=None):
     event_loop = EventLoop()
-    proc_man = ProcMan()
+    proc_man = proc_man or ProcMan()
     for sched in scheds:
         sched.ready(event_loop, proc_man)
     event_loop.run_events()
+
+
+def check_cpu_profile_prereqs(flamegraph_dir):
+    problems = []
+    if not shutil.which('perf'):
+        problems.append('perf is not in PATH')
+    try:
+        paranoid = int(Path('/proc/sys/kernel/perf_event_paranoid').read_text())
+    except (OSError, ValueError):
+        paranoid = None
+    if paranoid is not None and paranoid > 2 and os.geteuid() != 0:
+        problems.append(f'kernel.perf_event_paranoid is {paranoid}; it must be <= 2 to profile a thread')
+    for name in ('stackcollapse-perf.pl', 'flamegraph.pl'):
+        if not (flamegraph_dir / name).is_file():
+            problems.append(f'{flamegraph_dir / name} not found (see --flamegraph-dir)')
+    if problems:
+        sys.exit('ERROR: cannot use --discovery-cpu-profile:\n  ' + '\n  '.join(problems))
+
+
+def wait_for_sedp_tid(tid_file, relay_proc, timeout):
+    deadline = time() + timeout
+    while time() < deadline:
+        if tid_file.exists():
+            text = tid_file.read_text().strip()
+            if text.isdigit():
+                return int(text)
+        if relay_proc.poll() is not None:
+            raise RuntimeError(f'The relay exited with code {relay_proc.returncode} '
+                               'before writing the SEDP thread id file')
+        sleep(0.05)
+    raise RuntimeError(f'The relay did not write {tid_file} within {timeout} seconds')
+
+
+class CpuProfiler:
+    def __init__(self, base_name, flamegraph_dir):
+        self.data = Path(f'{base_name}.perf.data')
+        self.folded = Path(f'{base_name}.folded')
+        self.svg = Path(f'{base_name}.svg')
+        self.flamegraph_dir = flamegraph_dir
+        self.title = base_name
+        self.proc = None
+
+    def start(self, tid):
+        # DWARF unwinding because OpenSSL and libc are built without frame pointers.
+        # --no-buildid: perf's build-id pass unwinds every sample with addr2line and can take hours.
+        cmd = ['perf', 'record', '-F', '499', '--call-graph', 'dwarf,32768',
+               '--no-buildid', '--no-buildid-cache', '-t', str(tid), '-o', str(self.data)]
+        log('RUN', 'perf', ' '.join(cmd))
+        self.proc = subprocess.Popen(cmd)
+        deadline = time() + 5
+        while not self.data.exists():
+            if self.proc.poll() is not None:
+                raise RuntimeError(f'perf record exited with code {self.proc.returncode}')
+            if time() > deadline:
+                raise RuntimeError('perf record did not start recording')
+            sleep(0.05)
+
+    def stop(self):
+        if self.proc and self.proc.poll() is None:
+            log('SIGINT perf')
+            self.proc.send_signal(signal.SIGINT)
+            try:
+                self.proc.wait(timeout=120)
+            except subprocess.TimeoutExpired:
+                self.proc.kill()
+                self.proc.wait()
+
+    def render(self):
+        log('Rendering flame graph', self.svg)
+        script = subprocess.Popen(
+            ['perf', 'script', '-i', str(self.data), '--no-inline',
+             '-F', 'comm,pid,tid,time,period,event,ip,sym,dso'],
+            stdout=subprocess.PIPE)
+        with open(self.folded, 'w') as folded:
+            collapse = subprocess.Popen(
+                ['perl', str(self.flamegraph_dir / 'stackcollapse-perf.pl')],
+                stdin=script.stdout, stdout=folded)
+        script.stdout.close()
+        if collapse.wait() != 0 or script.wait() != 0:
+            raise RuntimeError('Failed to convert the perf data to folded stacks')
+        with open(self.folded) as folded, open(self.svg, 'w') as svg:
+            subprocess.check_call(
+                ['perl', str(self.flamegraph_dir / 'flamegraph.pl'),
+                 '--title', self.title, '--width', '1800'],
+                stdin=folded, stdout=svg)
 
 
 if __name__ == '__main__':
@@ -407,9 +510,23 @@ if __name__ == '__main__':
     profile_group = argp.add_mutually_exclusive_group()
     profile_group.add_argument('--heap-profile', action='store_true',
         help='Profile the relay heap with massif')
-    profile_group.add_argument('--discovery-profile', action='store_true',
-        help='Run one relay and connect all participants to relay 1')
+    profile_group.add_argument('--discovery-mutex-profile', action='store_true',
+        help='Run one relay, connect all participants to relay 1, and log ' +
+          'the discovery mutex statistics of its application domain')
+    profile_group.add_argument('--discovery-cpu-profile', action='store_true',
+        help='Run one relay, connect all participants to relay 1, and ' +
+          'profile the CPU of its application domain SEDP thread with perf')
+    argp.add_argument('--flamegraph-dir', type=Path,
+        default=Path('~/codes/FlameGraph').expanduser(),
+        help='FlameGraph checkout used by --discovery-cpu-profile')
+    argp.add_argument('--tid-timeout', type=int, default=10,
+        help='Seconds to wait for the relay to write the SEDP thread id')
+    argp.add_argument('--delete-perf-data', action='store_true',
+        help='Delete the perf data and folded stacks after rendering the flame graph')
     args = argp.parse_args()
+    discovery_profile = args.discovery_mutex_profile or args.discovery_cpu_profile
+    if args.discovery_cpu_profile:
+        check_cpu_profile_prereqs(args.flamegraph_dir)
 
     # Generate keys, certificates, and permissions documents
     subprocess.check_call([dpm_path, '--init'])
@@ -576,7 +693,7 @@ if __name__ == '__main__':
         uid_start=1,
         uid_count=args.ramp_up if args.ramp_up else args.count,
     )
-    if args.discovery_profile:
+    if discovery_profile:
         common['participant_relay_uid'] = 1
     if args.dummy:
         main_scheds = [DummySched(**common, min_start=1, max_start=5, min_dur=1, max_dur=10)]
@@ -591,18 +708,54 @@ if __name__ == '__main__':
                 min_dur=2, max_dur=10, kill_chance=0.5
             ),
         ]
-    other_scheds = [
-        MonitorSched(interval=0),
-        RelaySched(uid=1, interval=0, heap_profile=args.heap_profile,
-                   discovery_profile=args.discovery_profile)
-    ]
-    if not args.discovery_profile:
-        other_scheds.append(RelaySched(uid=2, interval=0, heap_profile=args.heap_profile,
-                                       discovery_profile=False))
+    other_scheds = [MonitorSched(interval=0)]
+    if not args.discovery_cpu_profile:
+        other_scheds.append(RelaySched(uid=1, interval=0, heap_profile=args.heap_profile,
+                                       discovery_mutex_profile=args.discovery_mutex_profile))
+    if not discovery_profile:
+        other_scheds.append(RelaySched(uid=2, interval=0, heap_profile=args.heap_profile))
     if args.max_time:
         other_scheds.append(ExitSched(interval=args.max_time))
     if args.ramp_up:
         other_scheds.append(LoadSched(
             main_scheds, interval=10, min_1min_load=0.70, min_5min_load=0.80,
             max_uid_count=args.count, **common))
-    run_sim(*main_scheds, *other_scheds)
+
+    proc_man = ProcMan()
+    profiler = None
+    tid_file = Path('sedp_tid.txt').resolve()
+    tid_tmp_file = tid_file.with_name(tid_file.name + '.tmp')
+    try:
+        if args.discovery_cpu_profile:
+            for stale in (tid_file, tid_tmp_file):
+                stale.unlink(missing_ok=True)
+            # Start the relay and attach perf before the participants generate load.
+            relay = RelaySched(uid=1, interval=0, discovery_cpu_profile=True, sedp_tid_file=tid_file)
+            relay_proc = relay.start(proc_man)
+            try:
+                tid = wait_for_sedp_tid(tid_file, relay_proc, args.tid_timeout)
+                log('SEDP thread id', tid)
+                profiler = CpuProfiler(f'sedp_cpu_{args.count}_{strftime("%Y%m%d_%H%M%S")}',
+                                       args.flamegraph_dir)
+                profiler.start(tid)
+            except RuntimeError as e:
+                sys.exit(f'ERROR: {e}')
+        run_sim(*main_scheds, *other_scheds, proc_man=proc_man)
+    finally:
+        try:
+            if profiler:
+                # Stop perf first so that shutdown work isn't in the profile.
+                profiler.stop()
+            proc_man.int_all()
+            if profiler:
+                try:
+                    profiler.render()
+                    print('Flame graph:', profiler.svg)
+                    if args.delete_perf_data:
+                        profiler.data.unlink(missing_ok=True)
+                        profiler.folded.unlink(missing_ok=True)
+                except (RuntimeError, subprocess.CalledProcessError) as e:
+                    print(f'ERROR: failed to render the flame graph: {e}', file=sys.stderr)
+        finally:
+            for scratch in (tid_file, tid_tmp_file):
+                scratch.unlink(missing_ok=True)

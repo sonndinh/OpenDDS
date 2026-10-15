@@ -707,6 +707,20 @@ RtpsDiscoveryConfig::guid_interface(const OPENDDS_STRING& gi)
                                              gi);
 }
 
+String
+RtpsDiscoveryConfig::sedp_thread_id_file() const
+{
+  return TheServiceParticipant->config_store()->get(config_key("SEDP_THREAD_ID_FILE").c_str(),
+                                                    "");
+}
+
+void
+RtpsDiscoveryConfig::sedp_thread_id_file(const String& path)
+{
+  TheServiceParticipant->config_store()->set(config_key("SEDP_THREAD_ID_FILE").c_str(),
+                                             path);
+}
+
 DCPS::NetworkAddressSet
 RtpsDiscoveryConfig::spdp_send_addrs() const
 {
@@ -950,17 +964,17 @@ RtpsDiscoveryConfig::periodic_directed_spdp(bool value)
 
 #ifdef OPENDDS_DISCOVERY_PROFILING
 DCPS::TimeDuration
-RtpsDiscoveryConfig::discovery_profiling_interval() const
+RtpsDiscoveryConfig::discovery_mutex_profiling_interval() const
 {
-  return TheServiceParticipant->config_store()->get(config_key("DISCOVERY_PROFILING_INTERVAL").c_str(),
+  return TheServiceParticipant->config_store()->get(config_key("DISCOVERY_MUTEX_PROFILING_INTERVAL").c_str(),
                                                     DCPS::TimeDuration::zero_value,
                                                     DCPS::ConfigStoreImpl::Format_FractionalSeconds);
 }
 
 void
-RtpsDiscoveryConfig::discovery_profiling_interval(const DCPS::TimeDuration& x)
+RtpsDiscoveryConfig::discovery_mutex_profiling_interval(const DCPS::TimeDuration& x)
 {
-  TheServiceParticipant->config_store()->set(config_key("DISCOVERY_PROFILING_INTERVAL").c_str(),
+  TheServiceParticipant->config_store()->set(config_key("DISCOVERY_MUTEX_PROFILING_INTERVAL").c_str(),
                                              x,
                                              DCPS::ConfigStoreImpl::Format_FractionalSeconds);
 }

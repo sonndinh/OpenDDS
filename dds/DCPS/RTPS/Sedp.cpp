@@ -45,6 +45,9 @@
 #  include <dds/DdsSecurityCoreTypeSupportImpl.h>
 #endif
 
+#include <ace/OS_NS_stdio.h>
+#include <ace/OS_NS_Thread.h>
+
 #include <cstring>
 
 namespace {
@@ -314,6 +317,34 @@ namespace {
       ? ParameterListConverter::RDE_FRACTIONAL_SECONDS
       : ParameterListConverter::RDE_NANOSECONDS;
   }
+
+  // Runs on the reactor thread so external tools (e.g. perf) can attach to it.
+  class WriteThreadIdFile : public DCPS::ReactorTask::Command {
+  public:
+    explicit WriteThreadIdFile(const String& path)
+      : path_(path)
+    {}
+
+  private:
+    void execute(DCPS::ReactorWrapper&)
+    {
+      // Write then rename so readers never see a partial file.
+      const String tmp = path_ + ".tmp";
+      FILE* const file = ACE_OS::fopen(tmp.c_str(), "w");
+      bool ok = file && ACE_OS::fprintf(file, "%d\n", static_cast<int>(ACE_OS::thr_gettid())) > 0;
+      if (file) {
+        ok = ACE_OS::fclose(file) == 0 && ok;
+      }
+      if (!ok || ACE_OS::rename(tmp.c_str(), path_.c_str()) != 0) {
+        if (log_level >= LogLevel::Error) {
+          ACE_ERROR((LM_ERROR, "(%P|%t) ERROR: WriteThreadIdFile::execute: "
+                     "failed to write %C: %m\n", path_.c_str()));
+        }
+      }
+    }
+
+    const String path_;
+  };
 }
 
 RtpsDiscoveryCore::RtpsDiscoveryCore(RcHandle<RtpsDiscoveryConfig> config,
@@ -564,6 +595,12 @@ Sedp::init(const GUID_t& guid,
     }
     return DDS::RETCODE_ERROR;
   }
+
+  const String thread_id_file = disco.config()->sedp_thread_id_file();
+  if (!thread_id_file.empty()) {
+    reactor_task_->execute_or_enqueue(make_rch<WriteThreadIdFile>(thread_id_file));
+  }
+
   // One should assume that the transport is configured after this
   // point.  Changes to transport_inst_ or rtps_inst after this line
   // may not be reflected.

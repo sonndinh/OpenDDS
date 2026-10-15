@@ -2,7 +2,7 @@
 '''Summarize the DiscoveryMutex profiling reports in an OpenDDS log file.
 
 Requires a build with OPENDDS_DISCOVERY_PROFILING and logs produced with
-DiscoveryProfilingInterval set for the discovery config of interest.
+DiscoveryMutexProfilingInterval set for the discovery config of interest.
 '''
 
 import argparse
