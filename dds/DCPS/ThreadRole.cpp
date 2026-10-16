@@ -20,7 +20,7 @@ OPENDDS_BEGIN_VERSIONED_NAMESPACE_DECL
 namespace OpenDDS {
 namespace DCPS {
 
-#ifdef OPENDDS_DISCOVERY_PROFILING
+#ifdef OPENDDS_DISCOVERY_MUTEX_PROFILING
 namespace {
   struct BusyEntry {
     BusyEntry() : labeled(false), busy_ns(0), busy_since(0), cpu_ns(-1), runq_ns(-1) {}

@@ -165,7 +165,7 @@ ACE_THR_FUNC_RETURN DispatchService::run(void* arg)
 
 void DispatchService::run_event_loop()
 {
-#ifdef OPENDDS_DISCOVERY_PROFILING
+#ifdef OPENDDS_DISCOVERY_MUTEX_PROFILING
   set_thread_role("EventDispatcher");
 #endif
   ThreadStatusManager& thread_status_manager = TheServiceParticipant->get_thread_status_manager();

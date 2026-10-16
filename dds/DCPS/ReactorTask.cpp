@@ -183,7 +183,7 @@ int ReactorTask::svc()
   // multi-threaded reactor execution.
   _add_ref();
 
-#ifdef OPENDDS_DISCOVERY_PROFILING
+#ifdef OPENDDS_DISCOVERY_MUTEX_PROFILING
   set_thread_role("Reactor:" + name_);
 #endif
 
@@ -274,7 +274,7 @@ int ReactorTask::run_reactor(size_t threads, const TimeDuration& run_time)
 
 int ReactorTask::run_reactor_i()
 {
-#ifdef OPENDDS_DISCOVERY_PROFILING
+#ifdef OPENDDS_DISCOVERY_MUTEX_PROFILING
   set_thread_role("Reactor:" + name_);
 #endif
   {

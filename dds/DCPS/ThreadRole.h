@@ -9,7 +9,7 @@
 #include "dcps_export.h"
 #include "PoolAllocator.h"
 
-#ifdef OPENDDS_DISCOVERY_PROFILING
+#ifdef OPENDDS_DISCOVERY_MUTEX_PROFILING
 #  include <ace/os_include/sys/os_types.h>
 
 #  include <cstdint>
@@ -25,7 +25,7 @@ OPENDDS_BEGIN_VERSIONED_NAMESPACE_DECL
 namespace OpenDDS {
 namespace DCPS {
 
-#ifdef OPENDDS_DISCOVERY_PROFILING
+#ifdef OPENDDS_DISCOVERY_MUTEX_PROFILING
 /// Label the calling thread for profiling output. The OS thread id is appended.
 OpenDDS_Dcps_Export void set_thread_role(const String& role);
 

@@ -2566,7 +2566,7 @@ Spdp::SpdpTransport::open(const DCPS::ReactorTask_rch& reactor_task,
 
   init_thread_status_event();
 
-#ifdef OPENDDS_DISCOVERY_PROFILING
+#ifdef OPENDDS_DISCOVERY_MUTEX_PROFILING
   profiling_event_ = DCPS::make_rch<DCPS::PeriodicEvent>(outer->sedp_->event_dispatcher(), DCPS::make_rch<SpdpTransportEvent>(rchandle_from(this), &SpdpTransport::profiling_task));
 #endif
 
@@ -2703,7 +2703,7 @@ Spdp::SpdpTransport::enable_periodic_tasks()
 
   enable_thread_status_event(TheServiceParticipant->get_thread_status_manager().thread_status_interval());
 
-#ifdef OPENDDS_DISCOVERY_PROFILING
+#ifdef OPENDDS_DISCOVERY_MUTEX_PROFILING
   const TimeDuration profiling_interval = outer->config_->discovery_mutex_profiling_interval();
   if (profiling_event_ && !profiling_interval.is_zero()) {
     outer->lock_.enable_reporting();
@@ -2796,7 +2796,7 @@ Spdp::SpdpTransport::close(const DCPS::ReactorTask_rch& reactor_task)
     thread_status_event_->disable();
   }
 #endif
-#ifdef OPENDDS_DISCOVERY_PROFILING
+#ifdef OPENDDS_DISCOVERY_MUTEX_PROFILING
   if (profiling_event_) {
     profiling_event_->disable();
   }
@@ -4628,7 +4628,7 @@ Spdp::SpdpTransport::process_lease_expirations()
   outer->process_lease_expirations(MonotonicTimePoint::now());
 }
 
-#ifdef OPENDDS_DISCOVERY_PROFILING
+#ifdef OPENDDS_DISCOVERY_MUTEX_PROFILING
 void Spdp::SpdpTransport::profiling_task()
 {
   DCPS::RcHandle<Spdp> outer = outer_.lock();

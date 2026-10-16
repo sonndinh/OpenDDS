@@ -10,9 +10,9 @@
 
 #include <ace/Thread_Mutex.h>
 
-#ifdef OPENDDS_DISCOVERY_PROFILING
+#ifdef OPENDDS_DISCOVERY_MUTEX_PROFILING
 #  ifndef ACE_HAS_CPP11
-#    error "OPENDDS_DISCOVERY_PROFILING requires C++11"
+#    error "OPENDDS_DISCOVERY_MUTEX_PROFILING requires C++11"
 #  endif
 #  include <ace/Guard_T.h>
 #  include <ace/Log_Msg.h>
@@ -37,7 +37,7 @@ OPENDDS_BEGIN_VERSIONED_NAMESPACE_DECL
 namespace OpenDDS {
 namespace RTPS {
 
-#ifndef OPENDDS_DISCOVERY_PROFILING
+#ifndef OPENDDS_DISCOVERY_MUTEX_PROFILING
 
 typedef ACE_Thread_Mutex DiscoveryMutex;
 

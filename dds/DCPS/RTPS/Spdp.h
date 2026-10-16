@@ -583,7 +583,7 @@ private:
     DCPS::PeriodicEvent_rch thread_status_event_;
     DCPS::MonotonicTimePoint last_thread_status_harvest_;
 #endif
-#ifdef OPENDDS_DISCOVERY_PROFILING
+#ifdef OPENDDS_DISCOVERY_MUTEX_PROFILING
     void profiling_task();
     DCPS::PeriodicEvent_rch profiling_event_;
 #endif

@@ -217,7 +217,7 @@ public:
   bool periodic_directed_spdp() const;
   void periodic_directed_spdp(bool value);
 
-#ifdef OPENDDS_DISCOVERY_PROFILING
+#ifdef OPENDDS_DISCOVERY_MUTEX_PROFILING
   /// Period of discovery lock stats logging; zero (the default) disables logging.
   DCPS::TimeDuration discovery_mutex_profiling_interval() const;
   void discovery_mutex_profiling_interval(const DCPS::TimeDuration& x);

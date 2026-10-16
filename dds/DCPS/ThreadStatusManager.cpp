@@ -259,7 +259,7 @@ void ThreadStatusManager::add_thread(const String& name)
 void ThreadStatusManager::update_i(Thread::ThreadStatus status, bool finished,
                                    bool nested, int detail1, int detail2)
 {
-#ifdef OPENDDS_DISCOVERY_PROFILING
+#ifdef OPENDDS_DISCOVERY_MUTEX_PROFILING
   thread_busy_transition(status == Thread::ThreadStatus_Active && !finished, nested && !finished);
 #endif
   const MonotonicTimePoint m_now = MonotonicTimePoint::now();

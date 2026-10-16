@@ -962,7 +962,7 @@ RtpsDiscoveryConfig::periodic_directed_spdp(bool value)
                                                      value);
 }
 
-#ifdef OPENDDS_DISCOVERY_PROFILING
+#ifdef OPENDDS_DISCOVERY_MUTEX_PROFILING
 DCPS::TimeDuration
 RtpsDiscoveryConfig::discovery_mutex_profiling_interval() const
 {

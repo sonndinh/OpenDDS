@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 '''Summarize the DiscoveryMutex profiling reports in an OpenDDS log file.
 
-Requires a build with OPENDDS_DISCOVERY_PROFILING and logs produced with
+Requires a build with OPENDDS_DISCOVERY_MUTEX_PROFILING and logs produced with
 DiscoveryMutexProfilingInterval set for the discovery config of interest.
 '''
 
