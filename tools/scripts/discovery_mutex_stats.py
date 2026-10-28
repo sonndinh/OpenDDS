@@ -10,6 +10,7 @@ import re
 import sys
 from collections import OrderedDict
 from datetime import datetime, timedelta
+from pathlib import Path
 
 LINE_RE = re.compile(
     r'^(?P<ts>\d{4}-\d\d-\d\d \d\d:\d\d:\d\d\.\d+)?.*?'
@@ -115,6 +116,77 @@ def print_table(headers, rows):
     print(line.format(*['-' * w for w in widths]))
     for row in rows:
         print(line.format(*[str(x) for x in row]))
+
+
+def mutex_domain(report):
+    for role in report.threads:
+        m = DOMAIN_RE.search(role)
+        if m:
+            return m.group(1)
+    return None
+
+
+def hold_busy_percent(v):
+    busy = v.get('busy_us')
+    if busy and busy > 0:
+        return 100.0 * v.get('hold_us', 0.0) / busy
+    return None
+
+
+def utilization_percent(v):
+    return v.get('busy_pct')
+
+
+def interval_series(intervals, value_fn):
+    '''role -> [(seconds since mutex creation, value)] from the interval reports.'''
+    series = OrderedDict()
+    t = 0.0
+    for r in intervals:
+        t += r.window_us / 1e6
+        for role, v in r.threads.items():
+            value = value_fn(v)
+            if value is not None:
+                series.setdefault(role, []).append((t, value))
+    return series
+
+
+def plot_series(option, mutex, domain, series, ylabel, path, fixed_ylim=None):
+    try:
+        import matplotlib
+        matplotlib.use('Agg')
+        import matplotlib.pyplot as plt
+    except ImportError:
+        sys.exit('{} requires matplotlib (pip install matplotlib)'.format(option))
+
+    if not series:
+        print('No data to plot for DiscoveryMutex {} ({})'.format(mutex, option))
+        return
+
+    fig, ax = plt.subplots(figsize=(12, 6))
+    for role, points in series.items():
+        ax.plot([p[0] for p in points], [p[1] for p in points], marker='o', markersize=3,
+                linewidth=1.2, label=short_role(role))
+    ax.set_xlabel('Time since mutex creation (s)')
+    ax.set_ylabel(ylabel)
+    if fixed_ylim:
+        ax.set_ylim(*fixed_ylim)
+    else:
+        top = max(p[1] for points in series.values() for p in points)
+        ax.set_ylim(0, top * 1.1 if top > 0 else 1)
+    ax.set_title('DiscoveryMutex {}  domain {}'.format(mutex, domain if domain is not None else '?'))
+    ax.grid(True, alpha=0.3)
+    ax.legend(fontsize=8)
+    fig.tight_layout()
+    fig.savefig(path, dpi=120)
+    plt.close(fig)
+    print('Wrote ' + str(path))
+
+
+def plot_path(base, mutex, multiple):
+    path = Path(base)
+    if multiple:
+        path = path.with_name('{}_{}{}'.format(path.stem, mutex, path.suffix))
+    return path
 
 
 def summarize_mutex(mutex, reports, show_timeline):
@@ -249,6 +321,12 @@ def main():
     parser.add_argument('log', help='log file to analyze')
     parser.add_argument('--mutex', help='only report this DiscoveryMutex address')
     parser.add_argument('--no-timeline', action='store_true', help='omit the per-interval timeline')
+    parser.add_argument('--plot-hold-busy', metavar='FILE',
+                        help="plot each thread's hold/busy percentage per interval to FILE " +
+                        '(.png, .svg, ...); with several mutexes the address is added to the name')
+    parser.add_argument('--plot-util', metavar='FILE',
+                        help="plot each thread's utilization (busy time / interval) per interval to " +
+                        'FILE; the y-axis is scaled to the data')
     args = parser.parse_args()
 
     reports = parse_log(args.log)
@@ -265,6 +343,20 @@ def main():
 
     for mutex, mutex_reports in by_mutex.items():
         summarize_mutex(mutex, mutex_reports, not args.no_timeline)
+        cumulative = [r for r in mutex_reports if r.kind == 'cumulative']
+        domain = mutex_domain(cumulative[-1]) if cumulative else None
+        intervals = [r for r in mutex_reports if r.kind == 'interval']
+        multiple = len(by_mutex) > 1
+        if args.plot_hold_busy:
+            plot_series('--plot-hold-busy', mutex, domain,
+                        interval_series(intervals, hold_busy_percent),
+                        'Lock hold time / busy time (%)',
+                        plot_path(args.plot_hold_busy, mutex, multiple), fixed_ylim=(0, 105))
+        if args.plot_util:
+            plot_series('--plot-util', mutex, domain,
+                        interval_series(intervals, utilization_percent),
+                        'Thread utilization (% of interval spent busy)',
+                        plot_path(args.plot_util, mutex, multiple))
         print()
 
 
