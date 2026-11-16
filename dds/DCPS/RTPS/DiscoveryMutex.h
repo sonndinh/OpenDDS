@@ -160,8 +160,66 @@ public:
     }
   };
 
+  struct SiteDuration {
+    Nanos total;
+    Nanos max;
+    Nanos interval_max;
+
+    SiteDuration() : total(0), max(0), interval_max(0) {}
+
+    void add(Nanos ns)
+    {
+      total += ns;
+      if (ns > max) {
+        max = ns;
+      }
+      if (ns > interval_max) {
+        interval_max = ns;
+      }
+    }
+
+    void subtract(const SiteDuration& other)
+    {
+      total -= other.total;
+    }
+  };
+
+  struct SiteStats {
+    std::uint64_t acquires;
+    std::uint64_t contended;
+    std::uint64_t try_acquires;
+    SiteDuration wait;
+    SiteDuration hold;
+
+    SiteStats() : acquires(0), contended(0), try_acquires(0) {}
+
+    void record_acquire(Nanos waited, bool was_contended)
+    {
+      ++acquires;
+      if (was_contended) {
+        ++contended;
+      }
+      wait.add(waited);
+    }
+
+    void reset_interval_max()
+    {
+      wait.interval_max = 0;
+      hold.interval_max = 0;
+    }
+
+    void subtract(const SiteStats& other)
+    {
+      acquires -= other.acquires;
+      contended -= other.contended;
+      try_acquires -= other.try_acquires;
+      wait.subtract(other.wait);
+      hold.subtract(other.hold);
+    }
+  };
+
   // A null site collects acquisitions that didn't go through a DiscoveryGuard.
-  typedef std::map<const DiscoveryLockSite*, LockStats> SiteStatsMap;
+  typedef std::map<const DiscoveryLockSite*, SiteStats> SiteStatsMap;
 
   struct ThreadStats : LockStats {
     DCPS::String role;
@@ -245,9 +303,6 @@ public:
       current.stats = stats_;
       for (StatsMap::iterator it = stats_.begin(); it != stats_.end(); ++it) {
         it->second.reset_interval_max();
-        for (SiteStatsMap::iterator s = it->second.sites.begin(); s != it->second.sites.end(); ++s) {
-          s->second.reset_interval_max();
-        }
       }
     }
     current.time = Clock::now();
@@ -328,10 +383,10 @@ private:
   void log_sites(const char* reason, const char* kind, const char* role,
                  const SiteStatsMap& current, const SiteStatsMap* base, bool interval) const
   {
-    typedef std::pair<const DiscoveryLockSite*, LockStats> SiteEntry;
+    typedef std::pair<const DiscoveryLockSite*, SiteStats> SiteEntry;
     std::vector<SiteEntry> entries;
     for (SiteStatsMap::const_iterator it = current.begin(); it != current.end(); ++it) {
-      LockStats s = it->second;
+      SiteStats s = it->second;
       if (base) {
         const SiteStatsMap::const_iterator prev = base->find(it->first);
         if (prev != base->end()) {
@@ -345,7 +400,7 @@ private:
     std::sort(entries.begin(), entries.end(), more_hold);
 
     for (std::vector<SiteEntry>::const_iterator it = entries.begin(); it != entries.end(); ++it) {
-      const LockStats& s = it->second;
+      const SiteStats& s = it->second;
       const std::string where = site_description(it->first);
       ACE_DEBUG((LM_INFO, "(%P|%t) DiscoveryMutex %@ %C %C %C site %C: acquires %Q contended %Q try_acquires %Q "
                  "wait_us %.3f wait_max_us %.3f hold_us %.3f hold_max_us %.3f\n",
@@ -358,8 +413,8 @@ private:
     }
   }
 
-  static bool more_hold(const std::pair<const DiscoveryLockSite*, LockStats>& a,
-                        const std::pair<const DiscoveryLockSite*, LockStats>& b)
+  static bool more_hold(const std::pair<const DiscoveryLockSite*, SiteStats>& a,
+                        const std::pair<const DiscoveryLockSite*, SiteStats>& b)
   {
     return a.second.hold.total > b.second.hold.total;
   }
@@ -419,7 +474,7 @@ private:
     if (s.role.empty()) {
       s.role = DCPS::thread_role();
     }
-    LockStats& site_stats = s.sites[site];
+    SiteStats& site_stats = s.sites[site];
     s.record_acquire(waited, contended);
     site_stats.record_acquire(waited, contended);
     holder_thread_ = &s;
@@ -430,7 +485,7 @@ private:
   ACE_Thread_Mutex mutex_;
   StatsMap stats_;
   LockStats* holder_thread_;
-  LockStats* holder_site_;
+  SiteStats* holder_site_;
   Clock::time_point hold_start_;
   std::atomic<std::uint64_t> try_failures_;
   std::atomic<bool> reporting_enabled_;
