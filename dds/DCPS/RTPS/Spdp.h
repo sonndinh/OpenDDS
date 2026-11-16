@@ -258,7 +258,7 @@ public:
 
   void ignore_topic(const GUID_t& ignoreId)
   {
-    ACE_GUARD(DiscoveryMutex, g, lock_);
+    OPENDDS_DISCOVERY_GUARD(g, lock_);
     endpoint_manager().ignore(ignoreId);
   }
 
@@ -285,7 +285,7 @@ public:
 
   void ignore_publication(const GUID_t& ignoreId)
   {
-    ACE_GUARD(DiscoveryMutex, g, lock_);
+    OPENDDS_DISCOVERY_GUARD(g, lock_);
     return endpoint_manager().ignore(ignoreId);
   }
 
@@ -332,7 +332,7 @@ public:
 
   void ignore_subscription(const GUID_t& ignoreId)
   {
-    ACE_GUARD(DiscoveryMutex, g, lock_);
+    OPENDDS_DISCOVERY_GUARD(g, lock_);
     return endpoint_manager().ignore(ignoreId);
   }
 

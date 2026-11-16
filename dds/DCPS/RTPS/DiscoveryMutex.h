@@ -20,12 +20,15 @@
 
 #  include <dds/DCPS/ThreadRole.h>
 
+#  include <algorithm>
 #  include <atomic>
 #  include <chrono>
 #  include <cstdint>
+#  include <cstring>
 #  include <map>
 #  include <sstream>
 #  include <string>
+#  include <vector>
 #endif
 
 #if !defined (ACE_LACKS_PRAGMA_ONCE)
@@ -41,9 +44,21 @@ namespace RTPS {
 
 typedef ACE_Thread_Mutex DiscoveryMutex;
 
+#  define OPENDDS_DISCOVERY_GUARD(OBJ, LOCK) ACE_GUARD(DiscoveryMutex, OBJ, LOCK)
+#  define OPENDDS_DISCOVERY_GUARD_RETURN(OBJ, LOCK, RETURN) ACE_GUARD_RETURN(DiscoveryMutex, OBJ, LOCK, RETURN)
+#  define OPENDDS_DISCOVERY_TRY_GUARD(OBJ, LOCK) ACE_Guard<DiscoveryMutex> OBJ(LOCK, false)
+#  define OPENDDS_DISCOVERY_SCOPED_GUARD(OBJ, LOCK) ACE_Guard<DiscoveryMutex> OBJ(LOCK)
+
 #else
 
-/// Drop-in replacement for ACE_Thread_Mutex that records per-thread wait and hold times.
+/// Where a DiscoveryMutex is acquired; one static instance per acquisition site.
+struct DiscoveryLockSite {
+  const char* function;
+  const char* file;
+  int line;
+};
+
+/// Drop-in replacement for ACE_Thread_Mutex that records wait and hold times per thread and per call site.
 class DiscoveryMutex {
 public:
   typedef std::chrono::steady_clock Clock;
@@ -111,17 +126,31 @@ public:
     }
   };
 
-  struct ThreadStats {
-    DCPS::String role;
+  struct LockStats {
     std::uint64_t acquires; // successful acquire() and tryacquire()
     std::uint64_t contended; // acquire() calls that had to block
     std::uint64_t try_acquires; // successful tryacquire()
     Durations wait;
     Durations hold;
 
-    ThreadStats() : acquires(0), contended(0), try_acquires(0) {}
+    LockStats() : acquires(0), contended(0), try_acquires(0) {}
 
-    void subtract(const ThreadStats& other)
+    void record_acquire(Nanos waited, bool was_contended)
+    {
+      ++acquires;
+      if (was_contended) {
+        ++contended;
+      }
+      wait.add(waited);
+    }
+
+    void reset_interval_max()
+    {
+      wait.interval_max = 0;
+      hold.interval_max = 0;
+    }
+
+    void subtract(const LockStats& other)
     {
       acquires -= other.acquires;
       contended -= other.contended;
@@ -131,11 +160,20 @@ public:
     }
   };
 
+  // A null site collects acquisitions that didn't go through a DiscoveryGuard.
+  typedef std::map<const DiscoveryLockSite*, LockStats> SiteStatsMap;
+
+  struct ThreadStats : LockStats {
+    DCPS::String role;
+    SiteStatsMap sites;
+  };
+
   typedef std::map<pid_t, ThreadStats> StatsMap;
 
   explicit DiscoveryMutex(const ACE_TCHAR* name = 0)
     : mutex_(name)
-    , holder_(0)
+    , holder_thread_(0)
+    , holder_site_(0)
     , try_failures_(0)
     , reporting_enabled_(false)
   {
@@ -154,27 +192,28 @@ public:
   /// Enables the final report at destruction; periodic reports are driven by the caller.
   void enable_reporting() { reporting_enabled_ = true; }
 
-  int acquire()
+  int acquire(const DiscoveryLockSite* site = 0)
   {
     if (mutex_.tryacquire() == 0) {
-      on_acquired(Clock::now(), 0, false);
+      on_acquired(Clock::now(), 0, false, site);
       return 0;
     }
     const Clock::time_point start = Clock::now();
     const int result = mutex_.acquire();
     if (result == 0) {
       const Clock::time_point now = Clock::now();
-      on_acquired(now, to_nanos(now - start), true);
+      on_acquired(now, to_nanos(now - start), true, site);
     }
     return result;
   }
 
-  int tryacquire()
+  int tryacquire(const DiscoveryLockSite* site = 0)
   {
     const int result = mutex_.tryacquire();
     if (result == 0) {
-      on_acquired(Clock::now(), 0, false);
-      ++holder_->try_acquires;
+      on_acquired(Clock::now(), 0, false, site);
+      ++holder_thread_->try_acquires;
+      ++holder_site_->try_acquires;
     } else {
       ++try_failures_;
     }
@@ -183,7 +222,9 @@ public:
 
   int release()
   {
-    holder_->hold.add(to_nanos(Clock::now() - hold_start_));
+    const Nanos held = to_nanos(Clock::now() - hold_start_);
+    holder_thread_->hold.add(held);
+    holder_site_->hold.add(held);
     return mutex_.release();
   }
 
@@ -203,8 +244,10 @@ public:
       ACE_Guard<ACE_Thread_Mutex> g(mutex_);
       current.stats = stats_;
       for (StatsMap::iterator it = stats_.begin(); it != stats_.end(); ++it) {
-        it->second.wait.interval_max = 0;
-        it->second.hold.interval_max = 0;
+        it->second.reset_interval_max();
+        for (SiteStatsMap::iterator s = it->second.sites.begin(); s != it->second.sites.end(); ++s) {
+          s->second.reset_interval_max();
+        }
       }
     }
     current.time = Clock::now();
@@ -236,7 +279,7 @@ private:
                static_cast<ACE_UINT64>(current.try_failures - base.try_failures)));
 
     for (StatsMap::const_iterator it = current.stats.begin(); it != current.stats.end(); ++it) {
-      ThreadStats s = it->second;
+      LockStats s = it->second;
       const StatsMap::const_iterator prev = base.stats.find(it->first);
       if (prev != base.stats.end()) {
         s.subtract(prev->second);
@@ -249,7 +292,7 @@ private:
         continue;
       }
 
-      const char* const role = s.role.c_str();
+      const char* const role = it->second.role.c_str();
       ACE_DEBUG((LM_INFO, "(%P|%t) DiscoveryMutex %@ %C %C %C: acquires %Q contended %Q try_acquires %Q "
                  "wait_us %.3f wait_max_us %.3f hold_us %.3f hold_max_us %.3f\n",
                  this, reason, kind, role,
@@ -276,7 +319,80 @@ private:
                  this, reason, kind, role, s.wait.hist.to_string().c_str()));
       ACE_DEBUG((LM_INFO, "(%P|%t) DiscoveryMutex %@ %C %C %C: hold_hist%C\n",
                  this, reason, kind, role, s.hold.hist.to_string().c_str()));
+
+      log_sites(reason, kind, role, it->second.sites,
+                prev != base.stats.end() ? &prev->second.sites : 0, interval);
     }
+  }
+
+  void log_sites(const char* reason, const char* kind, const char* role,
+                 const SiteStatsMap& current, const SiteStatsMap* base, bool interval) const
+  {
+    typedef std::pair<const DiscoveryLockSite*, LockStats> SiteEntry;
+    std::vector<SiteEntry> entries;
+    for (SiteStatsMap::const_iterator it = current.begin(); it != current.end(); ++it) {
+      LockStats s = it->second;
+      if (base) {
+        const SiteStatsMap::const_iterator prev = base->find(it->first);
+        if (prev != base->end()) {
+          s.subtract(prev->second);
+        }
+      }
+      if (!interval || s.acquires) {
+        entries.push_back(SiteEntry(it->first, s));
+      }
+    }
+    std::sort(entries.begin(), entries.end(), more_hold);
+
+    for (std::vector<SiteEntry>::const_iterator it = entries.begin(); it != entries.end(); ++it) {
+      const LockStats& s = it->second;
+      const std::string where = site_description(it->first);
+      ACE_DEBUG((LM_INFO, "(%P|%t) DiscoveryMutex %@ %C %C %C site %C: acquires %Q contended %Q try_acquires %Q "
+                 "wait_us %.3f wait_max_us %.3f hold_us %.3f hold_max_us %.3f\n",
+                 this, reason, kind, role, where.c_str(),
+                 static_cast<ACE_UINT64>(s.acquires),
+                 static_cast<ACE_UINT64>(s.contended),
+                 static_cast<ACE_UINT64>(s.try_acquires),
+                 s.wait.total / 1e3, (interval ? s.wait.interval_max : s.wait.max) / 1e3,
+                 s.hold.total / 1e3, (interval ? s.hold.interval_max : s.hold.max) / 1e3));
+    }
+  }
+
+  static bool more_hold(const std::pair<const DiscoveryLockSite*, LockStats>& a,
+                        const std::pair<const DiscoveryLockSite*, LockStats>& b)
+  {
+    return a.second.hold.total > b.second.hold.total;
+  }
+
+  /// "<file>:<line> <Class::function>", e.g. "Sedp.cpp:2452 Sedp::data_received".
+  static std::string site_description(const DiscoveryLockSite* site)
+  {
+    if (!site) {
+      return "unknown:0 unknown";
+    }
+    const char* file = site->file;
+    for (const char* p = site->file; *p; ++p) {
+      if (*p == '/' || *p == '\\') {
+        file = p + 1;
+      }
+    }
+    // Reduce a full signature (e.g. __PRETTY_FUNCTION__) to its qualified name.
+    std::string function = site->function;
+    const std::string::size_type paren = function.find('(');
+    if (paren != std::string::npos) {
+      function.erase(paren);
+    }
+    const std::string::size_type space = function.rfind(' ');
+    if (space != std::string::npos) {
+      function.erase(0, space + 1);
+    }
+    static const char prefix[] = "OpenDDS::RTPS::";
+    if (function.compare(0, sizeof prefix - 1, prefix) == 0) {
+      function.erase(0, sizeof prefix - 1);
+    }
+    std::ostringstream os;
+    os << file << ':' << site->line << ' ' << function;
+    return os.str();
   }
 
   static const DCPS::ThreadBusySample* find_busy(const DCPS::ThreadBusySnapshot& snapshot, pid_t tid)
@@ -297,24 +413,24 @@ private:
   }
 
   // Called with mutex_ held, so stats_ needs no extra synchronization.
-  void on_acquired(Clock::time_point now, Nanos waited, bool contended)
+  void on_acquired(Clock::time_point now, Nanos waited, bool contended, const DiscoveryLockSite* site)
   {
     ThreadStats& s = stats_[current_tid()];
     if (s.role.empty()) {
       s.role = DCPS::thread_role();
     }
-    ++s.acquires;
-    if (contended) {
-      ++s.contended;
-    }
-    s.wait.add(waited);
-    holder_ = &s;
+    LockStats& site_stats = s.sites[site];
+    s.record_acquire(waited, contended);
+    site_stats.record_acquire(waited, contended);
+    holder_thread_ = &s;
+    holder_site_ = &site_stats;
     hold_start_ = now;
   }
 
   ACE_Thread_Mutex mutex_;
   StatsMap stats_;
-  ThreadStats* holder_;
+  LockStats* holder_thread_;
+  LockStats* holder_site_;
   Clock::time_point hold_start_;
   std::atomic<std::uint64_t> try_failures_;
   std::atomic<bool> reporting_enabled_;
@@ -326,6 +442,62 @@ private:
   DiscoveryMutex(const DiscoveryMutex&);
   DiscoveryMutex& operator=(const DiscoveryMutex&);
 };
+
+/// Scoped lock that tells DiscoveryMutex where it was acquired.
+class DiscoveryGuard {
+public:
+  DiscoveryGuard(DiscoveryMutex& mutex, const DiscoveryLockSite& site, bool block)
+    : mutex_(mutex)
+    , owner_(block ? mutex.acquire(&site) : mutex.tryacquire(&site))
+  {}
+
+  ~DiscoveryGuard() { release(); }
+
+  bool locked() const { return owner_ == 0; }
+
+  int release()
+  {
+    if (owner_ != 0) {
+      return -1;
+    }
+    owner_ = -1;
+    return mutex_.release();
+  }
+
+private:
+  DiscoveryMutex& mutex_;
+  int owner_;
+
+  DiscoveryGuard(const DiscoveryGuard&);
+  DiscoveryGuard& operator=(const DiscoveryGuard&);
+};
+
+#  if defined __GNUC__ || defined __clang__
+#    define OPENDDS_DISCOVERY_FUNCTION __PRETTY_FUNCTION__
+#  elif defined _MSC_VER
+#    define OPENDDS_DISCOVERY_FUNCTION __FUNCSIG__
+#  else
+#    define OPENDDS_DISCOVERY_FUNCTION __func__
+#  endif
+
+#  define OPENDDS_DISCOVERY_LOCK_SITE(SITE) \
+  static const DiscoveryLockSite SITE = {OPENDDS_DISCOVERY_FUNCTION, __FILE__, __LINE__}
+
+// Same semantics as ACE_GUARD, ACE_GUARD_RETURN, ACE_Guard(lock, false) and ACE_Guard(lock).
+#  define OPENDDS_DISCOVERY_GUARD(OBJ, LOCK) \
+  OPENDDS_DISCOVERY_LOCK_SITE(OBJ##_lock_site); \
+  DiscoveryGuard OBJ(LOCK, OBJ##_lock_site, true); \
+  if (!OBJ.locked()) return
+#  define OPENDDS_DISCOVERY_GUARD_RETURN(OBJ, LOCK, RETURN) \
+  OPENDDS_DISCOVERY_LOCK_SITE(OBJ##_lock_site); \
+  DiscoveryGuard OBJ(LOCK, OBJ##_lock_site, true); \
+  if (!OBJ.locked()) return RETURN
+#  define OPENDDS_DISCOVERY_TRY_GUARD(OBJ, LOCK) \
+  OPENDDS_DISCOVERY_LOCK_SITE(OBJ##_lock_site); \
+  DiscoveryGuard OBJ(LOCK, OBJ##_lock_site, false)
+#  define OPENDDS_DISCOVERY_SCOPED_GUARD(OBJ, LOCK) \
+  OPENDDS_DISCOVERY_LOCK_SITE(OBJ##_lock_site); \
+  DiscoveryGuard OBJ(LOCK, OBJ##_lock_site, true)
 
 #endif
 

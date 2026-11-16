@@ -16,6 +16,12 @@ LINE_RE = re.compile(
     r'^(?P<ts>\d{4}-\d\d-\d\d \d\d:\d\d:\d\d\.\d+)?.*?'
     r'DiscoveryMutex (?P<mutex>0x[0-9a-f]+) (?P<reason>\w+) (?P<kind>cumulative|interval)'
     r'(?: (?P<role>.+?\(tid (?P<tid>\d+)\)))?: (?P<body>.*)$')
+SITE_RE = re.compile(
+    r'DiscoveryMutex (?P<mutex>0x[0-9a-f]+) (?P<reason>\w+) (?P<kind>cumulative|interval) '
+    r'(?P<role>.+?\(tid (?P<tid>\d+)\)) site (?P<file>\S+):(?P<line>\d+) (?P<function>.+?): '
+    r'(?P<body>acquires .*)$')
+SITE_SUM_KEYS = ('acquires', 'contended', 'try_acquires', 'wait_us', 'hold_us')
+SITE_MAX_KEYS = ('wait_max_us', 'hold_max_us')
 HIST_RE = re.compile(r'<2\^(\d+)ns:(\d+)')
 DOMAIN_RE = re.compile(r'SEDPTransportInst_[0-9a-f]+_(\d+)\(tid')
 TS_FORMAT = '%Y-%m-%d %H:%M:%S.%f'
@@ -46,11 +52,28 @@ def parse_pairs(body):
     return values
 
 
+def merge_site_values(dst, src):
+    for k in SITE_SUM_KEYS:
+        dst[k] = dst.get(k, 0.0) + src.get(k, 0.0)
+    for k in SITE_MAX_KEYS:
+        dst[k] = max(dst.get(k, 0.0), src.get(k, 0.0))
+
+
 def parse_log(path):
     reports = []
     current = {}  # (mutex, reason, kind) -> Report being filled
     with open(path, errors='replace') as f:
         for line in f:
+            m = SITE_RE.search(line)
+            if m:
+                report = current.get((m['mutex'], m['reason'], m['kind']))
+                if report is not None:
+                    sites = report.thread(m['role']).setdefault('sites', OrderedDict())
+                    key = (m['file'], int(m['line']), m['function'])
+                    # Inline functions can have one site per shared library, so merge duplicates.
+                    site = sites.setdefault(key, {'file': key[0], 'line': key[1], 'function': key[2]})
+                    merge_site_values(site, parse_pairs(m['body']))
+                continue
             m = LINE_RE.search(line)
             if not m:
                 continue
@@ -189,7 +212,49 @@ def plot_path(base, mutex, multiple):
     return path
 
 
-def summarize_mutex(mutex, reports, show_timeline):
+def group_sites(sites, by_function):
+    '''[(label, site count, values)] sorted by hold time, optionally merged per function.'''
+    groups = OrderedDict()
+    for (file, line, function), values in sites.items():
+        label = function if by_function else '{}:{} {}'.format(file, line, function)
+        group = groups.setdefault(label, [0, {}])
+        group[0] += 1
+        merge_site_values(group[1], values)
+    return sorted(((label, count, values) for label, (count, values) in groups.items()),
+                  key=lambda g: -g[2].get('hold_us', 0.0))
+
+
+def print_site_tables(ordered_threads, by_function, top_sites):
+    if not any(v.get('sites') for _, v in ordered_threads):
+        return
+    print('\nHold by call site (cumulative{}):'.format(', grouped by function' if by_function else ''))
+    for role, v in ordered_threads:
+        sites = v.get('sites')
+        if not sites:
+            continue
+        groups = group_sites(sites, by_function)
+        thread_hold = v.get('hold_us', 0.0)
+        busy = v.get('busy_us')
+        print('\n  ' + short_role(role))
+        rows = []
+        for label, count, s in groups[:top_sites] if top_sites else groups:
+            hold = s.get('hold_us', 0.0)
+            row = [label]
+            if by_function:
+                row.append(count)
+            row += [int(s.get('acquires', 0)), int(s.get('contended', 0)),
+                    fmt_us(s.get('wait_us')), fmt_us(s.get('wait_max_us')),
+                    fmt_us(hold), fmt_us(s.get('hold_max_us')),
+                    fmt_pct(hold, thread_hold), fmt_pct(hold, busy) if busy else '-']
+            rows.append(row)
+        headers = ['site' if not by_function else 'function'] + (['sites'] if by_function else [])
+        headers += ['acq', 'cont', 'wait', 'wait_max', 'hold', 'hold_max', '% thread hold', '% busy']
+        print_table(headers, rows)
+        if top_sites and len(groups) > top_sites:
+            print('  ... {} more (see --top-sites)'.format(len(groups) - top_sites))
+
+
+def summarize_mutex(mutex, reports, show_timeline, by_function=False, top_sites=15):
     cumulative = [r for r in reports if r.kind == 'cumulative']
     intervals = [r for r in reports if r.kind == 'interval']
     if not cumulative:
@@ -258,6 +323,8 @@ def summarize_mutex(mutex, reports, show_timeline):
                         [fmt_us(hist_percentile(hist, p)) for p in (50, 90, 99, 100)])
     print_table(['thread', 'what', 'p50', 'p90', 'p99', 'max'], rows)
 
+    print_site_tables(ordered, by_function, top_sites)
+
     notes = []
     for role, v in latest.threads.items():
         busy, cpu = v.get('busy_us'), v.get('cpu_us')
@@ -321,6 +388,10 @@ def main():
     parser.add_argument('log', help='log file to analyze')
     parser.add_argument('--mutex', help='only report this DiscoveryMutex address')
     parser.add_argument('--no-timeline', action='store_true', help='omit the per-interval timeline')
+    parser.add_argument('--by-function', action='store_true',
+                        help='merge the call sites of each function in the hold-by-call-site tables')
+    parser.add_argument('--top-sites', type=int, default=15, metavar='N',
+                        help='rows per thread in the hold-by-call-site tables (default 15, 0 for all)')
     parser.add_argument('--plot-hold-busy', metavar='FILE',
                         help="plot each thread's hold/busy percentage per interval to FILE " +
                         '(.png, .svg, ...); with several mutexes the address is added to the name')
@@ -342,7 +413,7 @@ def main():
         sys.exit('No reports for DiscoveryMutex ' + args.mutex)
 
     for mutex, mutex_reports in by_mutex.items():
-        summarize_mutex(mutex, mutex_reports, not args.no_timeline)
+        summarize_mutex(mutex, mutex_reports, not args.no_timeline, args.by_function, args.top_sites)
         cumulative = [r for r in mutex_reports if r.kind == 'cumulative']
         domain = mutex_domain(cumulative[-1]) if cumulative else None
         intervals = [r for r in mutex_reports if r.kind == 'interval']
